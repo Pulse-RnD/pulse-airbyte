@@ -1,0 +1,138 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string",
+      "description": "The unique ID for the user"
+    },
+    "etag": {
+      "type": "string"
+    },
+    "primaryEmail": {
+      "type": "string",
+      "description": "The user's primary email address"
+    },
+    "name": {
+      "type": "object",
+      "properties": {
+        "givenName": {
+          "type": "string",
+          "description": "The user's first name"
+        },
+        "familyName": {
+          "type": "string",
+          "description": "The user's last name"
+        },
+        "fullName": {
+          "type": "string",
+          "description": "The user's full name"
+        }
+      }
+    },
+    "isAdmin": {
+      "type": "boolean",
+      "description": "Whether the user is a super admin"
+    },
+    "isDelegatedAdmin": {
+      "type": "boolean",
+      "description": "Whether the user is a delegated admin"
+    },
+    "lastLoginTime": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "User's last login time"
+    },
+    "creationTime": {
+      "type": "string",
+      "format": "date-time",
+      "description": "User creation time"
+    },
+    "suspended": {
+      "type": "boolean",
+      "description": "Whether user is suspended"
+    },
+    "archived": {
+      "type": "boolean",
+      "description": "Whether user is archived"
+    },
+    "changePasswordAtNextLogin": {
+      "type": "boolean",
+      "description": "Whether user must change password at next login"
+    },
+    "ipWhitelisted": {
+      "type": "boolean",
+      "description": "If IP is whitelisted"
+    },
+    "emails": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "primary": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "phones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "organizations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "primary": {
+            "type": "boolean"
+          },
+          "customType": {
+            "type": "string"
+          },
+          "department": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "orgUnitPath": {
+      "type": "string",
+      "description": "The user's org unit path"
+    },
+    "includeInGlobalAddressList": {
+      "type": "boolean",
+      "description": "If user appears in global address list"
+    },
+    "customerId": {
+      "type": "string",
+      "description": "Customer ID"
+    },
+    "isMailboxSetup": {
+      "type": "boolean",
+      "description": "If user's mailbox is setup"
+    }
+  }
+}
