@@ -1,7 +1,7 @@
 data:
   allowedHosts:
     hosts:
-      - TODO # Please change to the hostname of the source.
+      - admin.googleapis.com
   registries:
     oss:
       enabled: true
@@ -12,9 +12,10 @@ data:
       enabled: true
       packageName: airbyte-source-google-directory-v2
   connectorBuildOptions:
-    # Please update to the latest version of the connector base image.
+    # TODO: Please update to the latest version of the connector base image.
     # https://hub.docker.com/r/airbyte/python-connector-base
     # Please use the full address with sha256 hash to guarantee build reproducibility.
+#    baseImage: docker.io/airbyte/python-connector-base:2.0.0@sha256:c44839ba84406116e8ba68722a0f30e8f6e7056c726f447681bb9e9ece8bd916
     baseImage: docker.io/airbyte/python-connector-base:1.2.0@sha256:c22a9d97464b69d6ef01898edf3f8612dc11614f05a84984451dde195f337db9
   connectorSubtype: api
   connectorType: source
@@ -25,7 +26,7 @@ data:
   icon: google-directory-v2.svg
   license: MIT
   name: Google Directory V2
-  releaseDate: TODO
+  releaseDate: TODO # TODO: Please update the release date.
   supportLevel: community
   releaseStage: alpha
   documentationUrl: https://docs.airbyte.com/integrations/sources/google-directory-v2
