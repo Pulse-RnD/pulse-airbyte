@@ -1,59 +1,53 @@
-#
-# Copyright (c) 2024 Airbyte, Inc., all rights reserved.
-#
-
-
-from airbyte_cdk.models import SyncMode
-from pytest import fixture
+import pytest
+from unittest.mock import MagicMock
 from source_google_directory_v2.source import IncrementalGoogleDirectoryV2Stream
 
 
-@fixture
-def patch_incremental_base_class(mocker):
-    # Mock abstract methods to enable instantiating abstract class
-    mocker.patch.object(IncrementalGoogleDirectoryV2Stream, "path", "v0/example_endpoint")
-    mocker.patch.object(IncrementalGoogleDirectoryV2Stream, "primary_key", "test_primary_key")
-    mocker.patch.object(IncrementalGoogleDirectoryV2Stream, "__abstractmethods__", set())
+@pytest.fixture
+def mock_credentials():
+    return MagicMock()
 
 
-def test_cursor_field(patch_incremental_base_class):
-    stream = IncrementalGoogleDirectoryV2Stream()
-    # TODO: replace this with your expected cursor field
-    expected_cursor_field = []
-    assert stream.cursor_field == expected_cursor_field
+class TestIncrementalStream(IncrementalGoogleDirectoryV2Stream):
+    primary_key = "test_id"
+    cursor_field = "creationTime"
+
+    def path(self, **kwargs):
+        return "test"
 
 
-def test_get_updated_state(patch_incremental_base_class):
-    stream = IncrementalGoogleDirectoryV2Stream()
-    # TODO: replace this with your input parameters
-    inputs = {"current_stream_state": None, "latest_record": None}
-    # TODO: replace this with your expected updated stream state
-    expected_state = {}
-    assert stream.get_updated_state(**inputs) == expected_state
+def test_cursor_field(mock_credentials):
+    stream = TestIncrementalStream(credentials=mock_credentials)
+    assert stream.cursor_field == "creationTime"
 
 
-def test_stream_slices(patch_incremental_base_class):
-    stream = IncrementalGoogleDirectoryV2Stream()
-    # TODO: replace this with your input parameters
-    inputs = {"sync_mode": SyncMode.incremental, "cursor_field": [], "stream_state": {}}
-    # TODO: replace this with your expected stream slices list
-    expected_stream_slice = [{}]
-    assert stream.stream_slices(**inputs) == expected_stream_slice
+def test_get_updated_state(mock_credentials):
+    stream = TestIncrementalStream(credentials=mock_credentials)
+    current_stream_state = {"creationTime": "2021-01-01T00:00:00+00:00"}
+    latest_record = {"creationTime": "2021-02-01T00:00:00+00:00"}
+    expected_state = {"creationTime": "2021-02-01T00:00:00+00:00"}
+    assert stream.get_updated_state(current_stream_state, latest_record) == expected_state
 
 
-def test_supports_incremental(patch_incremental_base_class, mocker):
-    mocker.patch.object(IncrementalGoogleDirectoryV2Stream, "cursor_field", "dummy_field")
-    stream = IncrementalGoogleDirectoryV2Stream()
+def test_stream_slices(mock_credentials):
+    stream = TestIncrementalStream(credentials=mock_credentials)
+    assert list(stream.stream_slices(
+        sync_mode="incremental",
+        cursor_field=None,
+        stream_state=None
+    )) == [{}]
+
+
+def test_supports_incremental(mock_credentials):
+    stream = TestIncrementalStream(credentials=mock_credentials)
     assert stream.supports_incremental
 
 
-def test_source_defined_cursor(patch_incremental_base_class):
-    stream = IncrementalGoogleDirectoryV2Stream()
+def test_source_defined_cursor(mock_credentials):
+    stream = TestIncrementalStream(credentials=mock_credentials)
     assert stream.source_defined_cursor
 
 
-def test_stream_checkpoint_interval(patch_incremental_base_class):
-    stream = IncrementalGoogleDirectoryV2Stream()
-    # TODO: replace this with your expected checkpoint interval
-    expected_checkpoint_interval = None
-    assert stream.state_checkpoint_interval == expected_checkpoint_interval
+def test_stream_checkpoint_interval(mock_credentials):
+    stream = TestIncrementalStream(credentials=mock_credentials)
+    assert stream.state_checkpoint_interval == 100

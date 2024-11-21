@@ -1,61 +1,49 @@
-#
-# Copyright (c) 2024 Airbyte, Inc., all rights reserved.
-#
-
-from http import HTTPStatus
-from unittest.mock import MagicMock
-
 import pytest
+from unittest.mock import MagicMock, patch
+from http import HTTPStatus
 from source_google_directory_v2.source import GoogleDirectoryV2Stream
 
 
 @pytest.fixture
-def patch_base_class(mocker):
-    # Mock abstract methods to enable instantiating abstract class
-    mocker.patch.object(GoogleDirectoryV2Stream, "path", "v0/example_endpoint")
-    mocker.patch.object(GoogleDirectoryV2Stream, "primary_key", "test_primary_key")
-    mocker.patch.object(GoogleDirectoryV2Stream, "__abstractmethods__", set())
+def mock_credentials():
+    return MagicMock()
 
 
-def test_request_params(patch_base_class):
-    stream = GoogleDirectoryV2Stream()
-    # TODO: replace this with your input parameters
-    inputs = {"stream_slice": None, "stream_state": None, "next_page_token": None}
-    # TODO: replace this with your expected request parameters
-    expected_params = {}
-    assert stream.request_params(**inputs) == expected_params
+class TestStream(GoogleDirectoryV2Stream):
+    primary_key = "test_id"
+
+    def path(self, **kwargs):
+        return "test"
 
 
-def test_next_page_token(patch_base_class):
-    stream = GoogleDirectoryV2Stream()
-    # TODO: replace this with your input parameters
-    inputs = {"response": MagicMock()}
-    # TODO: replace this with your expected next page token
-    expected_token = None
-    assert stream.next_page_token(**inputs) == expected_token
+def test_base_stream(mock_credentials):
+    mock_service = MagicMock()
+    mock_build = MagicMock(return_value=mock_service)
+    with patch('source_google_directory_v2.source.build', mock_build):
+        stream = TestStream(credentials=mock_credentials)
+        assert stream.service == mock_service
 
 
-def test_parse_response(patch_base_class):
-    stream = GoogleDirectoryV2Stream()
-    # TODO: replace this with your input parameters
-    inputs = {"response": MagicMock()}
-    # TODO: replace this with your expected parced object
-    expected_parsed_object = {}
-    assert next(stream.parse_response(**inputs)) == expected_parsed_object
+def test_next_page_token(mock_credentials):
+    stream = TestStream(credentials=mock_credentials)
+    response = MagicMock()
+    assert stream.next_page_token(response) is None
 
 
-def test_request_headers(patch_base_class):
-    stream = GoogleDirectoryV2Stream()
-    # TODO: replace this with your input parameters
-    inputs = {"stream_slice": None, "stream_state": None, "next_page_token": None}
-    # TODO: replace this with your expected request headers
-    expected_headers = {}
-    assert stream.request_headers(**inputs) == expected_headers
+def test_parse_response(mock_credentials):
+    stream = TestStream(credentials=mock_credentials)
+    response = MagicMock()
+    assert list(stream.parse_response(response)) == []
 
 
-def test_http_method(patch_base_class):
-    stream = GoogleDirectoryV2Stream()
-    # TODO: replace this with your expected http request method
+def test_request_headers(mock_credentials):
+    stream = TestStream(credentials=mock_credentials)
+    inputs = {"stream_state": None, "stream_slice": None, "next_page_token": None}
+    assert stream.request_headers(**inputs) == {}
+
+
+def test_http_method(mock_credentials):
+    stream = TestStream(credentials=mock_credentials)
     expected_method = "GET"
     assert stream.http_method == expected_method
 
@@ -69,15 +57,14 @@ def test_http_method(patch_base_class):
         (HTTPStatus.INTERNAL_SERVER_ERROR, True),
     ],
 )
-def test_should_retry(patch_base_class, http_status, should_retry):
+def test_should_retry(mock_credentials, http_status, should_retry):
     response_mock = MagicMock()
     response_mock.status_code = http_status
-    stream = GoogleDirectoryV2Stream()
+    stream = TestStream(credentials=mock_credentials)
     assert stream.should_retry(response_mock) == should_retry
 
 
-def test_backoff_time(patch_base_class):
+def test_backoff_time(mock_credentials):
     response_mock = MagicMock()
-    stream = GoogleDirectoryV2Stream()
-    expected_backoff_time = None
-    assert stream.backoff_time(response_mock) == expected_backoff_time
+    stream = TestStream(credentials=mock_credentials)
+    assert stream.backoff_time(response_mock) is None
