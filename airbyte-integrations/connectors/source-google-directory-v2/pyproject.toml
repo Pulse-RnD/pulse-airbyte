@@ -16,7 +16,11 @@ packages = [ { include = "source_google_directory_v2" }, {include = "main.py" } 
 
 [tool.poetry.dependencies]
 python = "^3.9,<3.12"
-airbyte-cdk = "^0"
+airbyte-cdk = "^0.90.0"
+google-api-python-client = "^2.0.0"
+google-auth-httplib2 = "^0.1.0"
+google-auth-oauthlib = "^1.0.0"
+pendulum = "^2.1.2"
 
 [tool.poetry.scripts]
 source-google-directory-v2 = "source_google_directory_v2.run:run"
