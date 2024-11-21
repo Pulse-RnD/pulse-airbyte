@@ -19,7 +19,6 @@ class GoogleDirectoryV2Stream(HttpStream, ABC):
     """Base stream for Google Directory API"""
 
     """
-
     This class represents a stream output by the connector.
     This is an abstract base class meant to contain all the common functionality at the API level e.g: the API base URL, pagination strategy,
     parsing responses etc..
@@ -95,6 +94,7 @@ class Users(GoogleDirectoryV2Stream):
     Stream for Google Workspace Directory Users
     """
 
+    name = "users"
     primary_key = "id"
 
     def path(self, **kwargs) -> str:
@@ -131,6 +131,7 @@ class Groups(GoogleDirectoryV2Stream):
     Stream for Google Workspace Groups
     """
 
+    name = "groups"
     primary_key = "id"
 
     def path(self, **kwargs) -> str:
@@ -180,18 +181,18 @@ class IncrementalGoogleDirectoryV2Stream(GoogleDirectoryV2Stream, ABC):
             latest_cursor_dt = pendulum.parse(latest_cursor_value)
             if current_state_value:
                 current_state_dt = pendulum.parse(current_state_value)
-                return { self.cursor_field: max(latest_cursor_dt, current_state_dt).isoformat() }
-            return { self.cursor_field: latest_cursor_dt.isoformat() }
+                return {self.cursor_field: max(latest_cursor_dt, current_state_dt).isoformat()}
+            return {self.cursor_field: latest_cursor_dt.isoformat()}
 
         return current_stream_state
 
 
 class IncrementalUsers(IncrementalGoogleDirectoryV2Stream):
-    """Incremental stream for Users"""
+    """Incremental stream for Users based on creation time"""
 
-    name = "users_incremental"  # This will show in the UI
+    name = "users_incremental"
     primary_key = "id"
-    cursor_field = "lastLoginTime"  # or could use "creationTime" depending on requirements
+    cursor_field = "creationTime"
 
     def path(self, **kwargs) -> str:
         return "users"
@@ -206,29 +207,31 @@ class IncrementalUsers(IncrementalGoogleDirectoryV2Stream):
         stream_state = stream_state or {}
         page_token = None
 
-        # Get the last sync time from state, or use a default date
-        last_sync = stream_state.get(self.cursor_field) or "2000-01-01T00:00:00.000Z"
+        last_sync = stream_state.get(self.cursor_field, "2000-01-01T00:00:00Z")
+        last_sync_date = pendulum.parse(last_sync).format("YYYY-MM-DD")
 
         while True:
-            request = self.service.users().list(
-                customer='my_customer',
-                maxResults=100,
-                pageToken=page_token,
-                orderBy='email',
-                # Query for users modified after our last sync time
-                # Note: You can use createTime>= or lastLoginTime>= or combine them
-                query=f'(createTime>={last_sync} OR lastLoginTime>={last_sync})'
-            )
-            response = request.execute()
+            try:
+                request = self.service.users().list(
+                    customer='my_customer',
+                    maxResults=100,
+                    pageToken=page_token,
+                    orderBy='email',
+                    query=f'creationTime>{last_sync_date}'
+                )
+                response = request.execute()
 
-            for user in response.get('users', []):
-                # Add cursor field if it doesn't exist
-                user[self.cursor_field] = user.get(self.cursor_field, last_sync)
-                yield user
+                # Since API is already filtering by creationTime,
+                # we can directly yield all users in the response
+                yield from response.get('users', [])
 
-            page_token = response.get('nextPageToken')
-            if not page_token:
-                break
+                page_token = response.get('nextPageToken')
+                if not page_token:
+                    break
+
+            except Exception as e:
+                self.logger.error(f"Error fetching users: {str(e)}")
+                raise
 
 """
 There isn't even a creationTime field. This means we can't reliably implement incremental sync for Groups since there's no timestamp field to track changes.
