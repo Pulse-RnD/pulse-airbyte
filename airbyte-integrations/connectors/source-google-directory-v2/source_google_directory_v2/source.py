@@ -14,6 +14,8 @@ from googleapiclient.discovery import build
 from google.oauth2 import service_account
 
 
+# TODO: Add my_customer constant to the base class
+
 class GoogleDirectoryV2Stream(HttpStream, ABC):
     """Base stream for Google Directory API"""
 
@@ -160,6 +162,85 @@ class Groups(GoogleDirectoryV2Stream):
             page_token = groups_response.get('nextPageToken')
             if not page_token:
                 break
+
+
+class OAuthAppsByUser(GoogleDirectoryV2Stream):
+    """
+    Stream for OAuth Apps by User and the respective scopes
+    """
+
+    name = "oauth_apps_by_user"
+    primary_key = "userId"
+
+    def path(self, **kwargs) -> str:
+        return f"users/{kwargs['userId']}/tokens"
+
+    def read_records(
+            self,
+            sync_mode: str,
+            cursor_field: List[str] = None,
+            stream_slice: Mapping[str, Any] = None,
+            stream_state: Mapping[str, Any] = None,
+    ) -> Iterable[Mapping[str, Any]]:
+        user_email = stream_slice.get("userEmail")
+        page_token = stream_state.get("pageToken", None)
+
+        while True:
+            tokens_request = self.service.tokens().list(
+                userKey=user_email,
+                pageToken=page_token,
+                maxResults=100
+            )
+            tokens_response = tokens_request.execute()
+
+            oauth_apps = []
+            for token in tokens_response.get("items", []):
+                app_info = {
+                    "appId": token.get("clientId", ""),
+                    "appName": token.get("displayText", ""),
+                    "scopes": token.get("scopes", []),
+                    "anonymous": token.get("anonymous", False),
+                    "nativeApp": token.get("nativeApp", False),
+                    "issuedTime": token.get("issued", ""),
+                    "lastAccessTime": token.get("lastAccessTime", "Never"),
+                    "instalationType": "user-specific",
+                    "appType": "oauth",
+                    "status": None,
+                    "etag": None,
+                }
+                oauth_apps.append(app_info)
+
+            yield {
+                "userId": stream_slice.get("userId"),
+                "userEmail": stream_slice.get("userEmail"),
+                "oauthApps": oauth_apps,
+            }
+
+            page_token = tokens_response.get("nextPageToken")
+            if not page_token:
+                break
+
+            yield from self.update_state(stream_state, "pageToken", page_token)
+
+    def get_updated_state(self, current_stream_state: Mapping[str, Any], latest_record: Mapping[str, Any]) -> Mapping[str, Any]:
+        new_state = current_stream_state.copy()
+        new_state["pageToken"] = latest_record.get("pageToken")
+        return new_state
+
+    def stream_slices(self, **kwargs) -> Iterable[Mapping[str, Any]]:
+        users_request = self.service.users().list(
+            customer='my_customer',
+            maxResults=100,
+            orderBy='email'
+        )
+        users_response = users_request.execute()
+
+        for user in users_response.get('users', []):
+            yield {
+                "userId": user["id"],
+                "userEmail": user["primaryEmail"],
+                "pageToken": None # Initialize page token
+            }
 
 
 class IncrementalGoogleDirectoryV2Stream(GoogleDirectoryV2Stream, ABC):
@@ -343,6 +424,7 @@ class SourceGoogleDirectoryV2(AbstractSource):
             # Regular full refresh streams
             Groups(credentials=credentials),
             Users(credentials=credentials),
+            OAuthAppsByUser(credentials=credentials),
             # Incremental streams
             # IncrementalGroups(credentials=credentials),
             IncrementalUsers(credentials=credentials)
