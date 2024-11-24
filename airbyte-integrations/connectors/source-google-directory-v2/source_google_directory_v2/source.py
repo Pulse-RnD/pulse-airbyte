@@ -183,15 +183,19 @@ class OAuthAppsByUser(GoogleDirectoryV2Stream):
             stream_state: Mapping[str, Any] = None,
     ) -> Iterable[Mapping[str, Any]]:
         user_email = stream_slice.get("userEmail")
-        page_token = stream_state.get("pageToken", None)
+        page_token = stream_state.get("pageToken", None) if stream_state else None
 
         while True:
-            tokens_request = self.service.tokens().list(
-                userKey=user_email,
-                pageToken=page_token,
-                maxResults=100
-            )
-            tokens_response = tokens_request.execute()
+            try:
+                tokens_request = self.service.tokens().list(
+                    userKey=user_email,
+                    pageToken=page_token,
+                    maxResults=100
+                )
+                tokens_response = tokens_request.execute()
+            except TypeError as e:
+                self.logger.error(f"Unexpected parameter in tokens().list() method: {e}")
+                return
 
             oauth_apps = []
             for token in tokens_response.get("items", []):
@@ -224,7 +228,7 @@ class OAuthAppsByUser(GoogleDirectoryV2Stream):
 
     def get_updated_state(self, current_stream_state: Mapping[str, Any], latest_record: Mapping[str, Any]) -> Mapping[str, Any]:
         new_state = current_stream_state.copy()
-        new_state["pageToken"] = latest_record.get("pageToken")
+        new_state["pageToken"] = latest_record.get("pageToken", new_state.get("pageToken"))
         return new_state
 
     def stream_slices(self, **kwargs) -> Iterable[Mapping[str, Any]]:
