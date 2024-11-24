@@ -139,11 +139,11 @@ class Groups(GoogleDirectoryV2Stream):
         return "groups"  # Required by HttpStream but not actually used
 
     def read_records(
-            self,
-            sync_mode: str,
-            cursor_field: List[str] = None,
-            stream_slice: Mapping[str, Any] = None,
-            stream_state: Mapping[str, Any] = None,
+        self,
+        sync_mode: str,
+        cursor_field: List[str] = None,
+        stream_slice: Mapping[str, Any] = None,
+        stream_state: Mapping[str, Any] = None,
     ) -> Iterable[Mapping[str, Any]]:
         page_token = None
 
@@ -176,26 +176,28 @@ class OAuthAppsByUser(GoogleDirectoryV2Stream):
         return f"users/{kwargs['userId']}/tokens"
 
     def read_records(
-            self,
-            sync_mode: str,
-            cursor_field: List[str] = None,
-            stream_slice: Mapping[str, Any] = None,
-            stream_state: Mapping[str, Any] = None,
+        self,
+        sync_mode: str,
+        cursor_field: List[str] = None,
+        stream_slice: Mapping[str, Any] = None,
+        stream_state: Mapping[str, Any] = None,
     ) -> Iterable[Mapping[str, Any]]:
+
+        self.logger.info(f"read_records: Reading OAuth apps for user: {stream_slice.get('userEmail')}")
+
         user_email = stream_slice.get("userEmail")
-        page_token = stream_state.get("pageToken", None) if stream_state else None
+        if not user_email:
+            self.logger.warning("userEmail is missing from the stream_slice. Skipping this stream_slice.")
+            return
+
+        next_page_token = stream_state.get("nextPageToken", None) if stream_state else None
 
         while True:
-            try:
-                tokens_request = self.service.tokens().list(
-                    userKey=user_email,
-                    pageToken=page_token,
-                    maxResults=100
-                )
-                tokens_response = tokens_request.execute()
-            except TypeError as e:
-                self.logger.error(f"Unexpected parameter in tokens().list() method: {e}")
-                return
+            self.logger.info(f"Fetching OAuth apps for user: {user_email}, page_token: {next_page_token}")
+            tokens_request = self.service.tokens().list(userKey=user_email)
+            if next_page_token:
+                tokens_request.pageToken = next_page_token
+            tokens_response = tokens_request.execute()
 
             oauth_apps = []
             for token in tokens_response.get("items", []):
@@ -207,45 +209,59 @@ class OAuthAppsByUser(GoogleDirectoryV2Stream):
                     "nativeApp": token.get("nativeApp", False),
                     "issuedTime": token.get("issued", ""),
                     "lastAccessTime": token.get("lastAccessTime", "Never"),
-                    "instalationType": "user-specific",
+                    "installationType": "user-specific",
                     "appType": "oauth",
                     "status": None,
                     "etag": None,
                 }
                 oauth_apps.append(app_info)
 
-            yield {
-                "userId": stream_slice.get("userId"),
-                "userEmail": stream_slice.get("userEmail"),
-                "oauthApps": oauth_apps,
-            }
+            if oauth_apps:
+                self.logger.info(f"Yielding {len(oauth_apps)} OAuth apps for user: {user_email}")
+                yield {
+                    "userId": stream_slice.get("userId"),
+                    "userEmail": stream_slice.get("userEmail"),
+                    "oauthApps": oauth_apps,
+                }
+            else:
+                self.logger.info(f"No OAuth apps found for user: {user_email}")
 
-            page_token = tokens_response.get("nextPageToken")
-            if not page_token:
+            next_page_token = tokens_response.get("nextPageToken")
+            if not next_page_token:
+                self.logger.info(f"Reached the end of the OAuth apps for user: {user_email}")
                 break
 
-            yield from self.update_state(stream_state, "pageToken", page_token)
-
-    def get_updated_state(self, current_stream_state: Mapping[str, Any], latest_record: Mapping[str, Any]) -> Mapping[str, Any]:
-        new_state = current_stream_state.copy()
-        new_state["pageToken"] = latest_record.get("pageToken", new_state.get("pageToken"))
-        return new_state
-
     def stream_slices(self, **kwargs) -> Iterable[Mapping[str, Any]]:
-        users_request = self.service.users().list(
-            customer='my_customer',
-            maxResults=100,
-            orderBy='email'
-        )
-        users_response = users_request.execute()
+        page_token = None
+        total_users = 0
 
-        for user in users_response.get('users', []):
-            yield {
-                "userId": user["id"],
-                "userEmail": user["primaryEmail"],
-                "pageToken": None # Initialize page token
-            }
+        while True:
+            users_request = self.service.users().list(
+                customer='my_customer',
+                maxResults=100,
+                pageToken=page_token,
+                orderBy='email'
+            )
+            users_response = users_request.execute()
+            self.logger.info(f"stream_slices: Found {len(users_response.get('users', []))} users")
+            total_users += len(users_response.get('users', []))
 
+            for user in users_response.get('users', []):
+                user_email = user.get("primaryEmail")
+                if user_email:
+                    self.logger.info(f"stream_slices: Yielding user: {user_email}")
+                    yield {
+                        "userId": user["id"],
+                        "userEmail": user_email,
+                        "nextPageToken": page_token
+                    }
+                else:
+                    self.logger.warning(f"Skipping user with missing primaryEmail: {user}")
+
+            page_token = users_response.get("nextPageToken")
+            if not page_token:
+                self.logger.info(f"stream_slices: Total users found: {total_users}")
+                break
 
 class IncrementalGoogleDirectoryV2Stream(GoogleDirectoryV2Stream, ABC):
     """Base class for incremental streams in Google Directory"""
