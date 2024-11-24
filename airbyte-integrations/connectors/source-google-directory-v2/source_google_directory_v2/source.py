@@ -1,8 +1,7 @@
 #
 # Copyright (c) 2024 Airbyte, Inc., all rights reserved.
 #
-
-
+import json
 from abc import ABC
 from typing import Any, Iterable, List, Mapping, MutableMapping, Optional, Tuple
 
@@ -293,15 +292,16 @@ class SourceGoogleDirectoryV2(AbstractSource):
                 raise ValueError(f"Missing required configuration parameter: {key}")
 
         try:
-            return service_account.Credentials.from_service_account_info(
-                config["credentials_json"],
-                scopes=[
+            credentials_json = config.get("credentials_json")
+            admin_email = config["admin_email"]
+            account_info = json.loads(credentials_json)
+            creds = service_account.Credentials.from_service_account_info(account_info, scopes=[
                     'https://www.googleapis.com/auth/admin.directory.user.readonly',
                     'https://www.googleapis.com/auth/admin.directory.group.readonly',
                     'https://www.googleapis.com/auth/admin.directory.user.security'
-                ],
-                subject=config["admin_email"]
-            )
+                ])
+            creds = creds.with_subject(admin_email)
+            return creds
         except ValueError as e:
             raise ValueError(f"Invalid configuration format: {str(e)}")
 
