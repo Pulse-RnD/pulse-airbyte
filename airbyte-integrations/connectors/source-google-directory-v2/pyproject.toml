@@ -27,6 +27,6 @@ source-google-directory-v2 = "source_google_directory_v2.run:run"
 
 [tool.poetry.group.dev.dependencies]
 requests-mock = "*"
-pytest-mock = "*"
-pytest = "*"
+pytest = "^6.2"
+pytest-mock = "^3.6.1"
 
