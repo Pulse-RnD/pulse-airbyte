@@ -2,14 +2,22 @@
 # Copyright (c) 2024 Airbyte, Inc., all rights reserved.
 #
 import json
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Any, Iterable, List, Mapping, MutableMapping, Optional, Tuple
 
-import pendulum
 import requests
 from airbyte_cdk.sources import AbstractSource
 from airbyte_cdk.sources.streams import Stream
 from airbyte_cdk.sources.streams.http import HttpStream
+from airbyte_cdk.models import Type
+from airbyte_cdk.models.airbyte_protocol import (
+    AirbyteMessage,
+    AirbyteStateMessage,
+    AirbyteStateType,
+    StreamDescriptor,
+    AirbyteStreamState
+)
+from airbyte_cdk.models import SyncMode
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 
@@ -263,39 +271,92 @@ class OAuthAppsByUser(GoogleDirectoryV2Stream):
                 self.logger.info(f"stream_slices: Total users found: {total_users}")
                 break
 
+
 class IncrementalGoogleDirectoryV2Stream(GoogleDirectoryV2Stream, ABC):
     """Base class for incremental streams in Google Directory"""
 
     state_checkpoint_interval = 100  # Save state every 100 records
+
+    @staticmethod
+    def _emit_state_message(stream_name: str, state: Mapping[str, Any]) -> AirbyteMessage:
+        """Create proper per-stream state message for Airbyte protocol"""
+        return AirbyteMessage(
+            type=Type.STATE,
+            state=AirbyteStateMessage(
+                type=AirbyteStateType.STREAM,
+                stream=AirbyteStreamState(
+                    stream_descriptor=StreamDescriptor(
+                        name=stream_name
+                    ),
+                    stream_state=state
+                )
+            )
+        )
+
+    @abstractmethod
+    def get_updated_state(
+            self,
+            current_stream_state: MutableMapping[str, Any],
+            latest_record: Mapping[str, Any]
+    ) -> Mapping[str, Any]:
+        """
+        Abstract method to be implemented by concrete classes
+        to define their own state update logic
+        """
+        pass
+
+
+class IncrementalUsers(IncrementalGoogleDirectoryV2Stream):
+    """Incremental stream for Users based on etags"""
+
+    name = "users_incremental"
+    primary_key = "id"
+    cursor_field = "etag"
+
+    @property
+    def state_checkpoint_interval(self) -> int:
+        return 100
+
+    @property
+    def supported_sync_modes(self) -> List[SyncMode]:
+        from airbyte_cdk.models import SyncMode
+        return [SyncMode.full_refresh, SyncMode.incremental]
+
+    def path(self, **kwargs) -> str:
+        return "users"
+
+    def _should_emit(self, record: Mapping[str, Any], stream_state: Mapping[str, Any]) -> bool:
+        """Determine if the record should be emitted based on etag comparison"""
+        if not stream_state or 'user_etags' not in stream_state:
+            return True
+
+        user_id = record.get('id')
+        current_etag = record.get('etag')
+        previous_etag = stream_state.get('user_etags', {}).get(user_id)
+
+        should_emit = previous_etag is None or previous_etag != current_etag
+        self.logger.info(f"Comparing etags for user {user_id}: {previous_etag} vs {current_etag} -> {should_emit}")
+
+        return should_emit
 
     def get_updated_state(
             self,
             current_stream_state: MutableMapping[str, Any],
             latest_record: Mapping[str, Any]
     ) -> Mapping[str, Any]:
-        """Update the state with the latest cursor value"""
-        latest_cursor_value = latest_record.get(self.cursor_field)
-        current_state_value = current_stream_state.get(self.cursor_field)
+        """Calculate new state based on latest record without modifying current state"""
+        new_state = {
+            # TODO: Optimize this to avoid copying the entire state
+            'user_etags': current_stream_state.get('user_etags', {}).copy()
+        }
 
-        if latest_cursor_value:
-            latest_cursor_dt = pendulum.parse(latest_cursor_value)
-            if current_state_value:
-                current_state_dt = pendulum.parse(current_state_value)
-                return {self.cursor_field: max(latest_cursor_dt, current_state_dt).isoformat()}
-            return {self.cursor_field: latest_cursor_dt.isoformat()}
+        user_id = latest_record.get('id')
+        latest_etag = latest_record.get('etag')
 
-        return current_stream_state
+        if user_id and latest_etag:
+            new_state['user_etags'][user_id] = latest_etag
 
-
-class IncrementalUsers(IncrementalGoogleDirectoryV2Stream):
-    """Incremental stream for Users based on creation time"""
-
-    name = "users_incremental"
-    primary_key = "id"
-    cursor_field = "creationTime"
-
-    def path(self, **kwargs) -> str:
-        return "users"
+        return new_state
 
     def read_records(
             self,
@@ -304,81 +365,52 @@ class IncrementalUsers(IncrementalGoogleDirectoryV2Stream):
             stream_slice: Mapping[str, Any] = None,
             stream_state: Mapping[str, Any] = None,
     ) -> Iterable[Mapping[str, Any]]:
-        stream_state = stream_state or {}
-        page_token = None
+        self.logger.info(f"Starting read_records with sync_mode={sync_mode}, cursor_field={cursor_field}, stream_state={stream_state}")
+        try:
+            current_state = stream_state or {}
+            page_token = None
+            records_processed = 0
 
-        last_sync = stream_state.get(self.cursor_field, "2000-01-01T00:00:00Z")
-        last_sync_date = pendulum.parse(last_sync).format("YYYY-MM-DD")
+            while True:
+                try:
+                    self.logger.info("Fetching users from API")
+                    request = self.service.users().list(
+                        customer='my_customer',
+                        maxResults=100,
+                        pageToken=page_token,
+                        orderBy='email'
+                    )
+                    response = request.execute()
+                    users = response.get('users', [])
+                    self.logger.info(f"Fetched {len(users)} users")
 
-        while True:
-            try:
-                request = self.service.users().list(
-                    customer='my_customer',
-                    maxResults=100,
-                    pageToken=page_token,
-                    orderBy='email',
-                    query=f'creationTime>{last_sync_date}'
-                )
-                response = request.execute()
+                    for user in users:
+                        if self._should_emit(user, current_state):
+                            current_state = self.get_updated_state(current_state, user)
+                            records_processed += 1
 
-                # Since API is already filtering by creationTime,
-                # we can directly yield all users in the response
-                yield from response.get('users', [])
+                            if records_processed % self.state_checkpoint_interval == 0:
+                                state_msg = self._emit_state_message(self.name, current_state)
+                                self.logger.info(f"Emitting state checkpoint: {state_msg}")
+                                yield state_msg
 
-                page_token = response.get('nextPageToken')
-                if not page_token:
-                    break
+                            yield user
 
-            except Exception as e:
-                self.logger.error(f"Error fetching users: {str(e)}")
-                raise
+                    page_token = response.get('nextPageToken')
+                    if not page_token:
+                        if records_processed > 0:
+                            final_state = self._emit_state_message(self.name, current_state)
+                            self.logger.info(f"Emitting final state: {final_state}")
+                            yield final_state
+                        break
 
-"""
-There isn't even a creationTime field. This means we can't reliably implement incremental sync for Groups since there's no timestamp field to track changes.
-"""
-# class IncrementalGroups(IncrementalGoogleDirectoryV2Stream):
-#     """Incremental stream for Groups"""
-#
-#     name = "groups_incremental"  # This will show in the UI
-#     primary_key = "id"
-#     cursor_field = "updated"  # Groups have an 'updated' field we can use
-#
-#     def path(self, **kwargs) -> str:
-#         return "groups"
-#
-#     def read_records(
-#             self,
-#             sync_mode: str,
-#             cursor_field: List[str] = None,
-#             stream_slice: Mapping[str, Any] = None,
-#             stream_state: Mapping[str, Any] = None,
-#     ) -> Iterable[Mapping[str, Any]]:
-#         stream_state = stream_state or {}
-#         page_token = None
-#
-#         # Get the last sync time from state
-#         last_sync = stream_state.get(self.cursor_field) or "2000-01-01T00:00:00.000Z"
-#
-#         while True:
-#             request = self.service.groups().list(
-#                 customer='my_customer',
-#                 maxResults=100,
-#                 pageToken=page_token,
-#                 orderBy='email',
-#                 # Query for groups updated after our last sync
-#                 query=f'updated>={last_sync}'
-#             )
-#             response = request.execute()
-#
-#             for group in response.get('groups', []):
-#                 # Add cursor field if it doesn't exist
-#                 group[self.cursor_field] = group.get(self.cursor_field, last_sync)
-#                 yield group
-#
-#             page_token = response.get('nextPageToken')
-#             if not page_token:
-#                 break
+                except Exception as e:
+                    self.logger.error(f"Error in read_records loop: {str(e)}")
+                    raise
 
+        except Exception as e:
+            self.logger.error(f"Error in read_records: {str(e)}")
+            raise
 
 class SourceGoogleDirectoryV2(AbstractSource):
     """

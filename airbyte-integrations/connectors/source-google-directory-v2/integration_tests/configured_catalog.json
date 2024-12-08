@@ -48,54 +48,19 @@
       "sync_mode": "full_refresh",
       "destination_sync_mode": "overwrite"
     },
-    {
+     {
       "stream": {
         "name": "users_incremental",
         "json_schema": {
-          "$schema": "http://json-schema.org/draft-07/schema#",
           "type": "object",
-          "properties": {
-            "kind": {
-              "type": "string"
-            },
-            "id": {
-              "type": "string"
-            },
-            "etag": {
-              "type": "string"
-            },
-            "primaryEmail": {
-              "type": "string"
-            },
-            "name": {
-              "type": "object",
-              "properties": {
-                "givenName": {
-                  "type": "string"
-                },
-                "familyName": {
-                  "type": "string"
-                },
-                "fullName": {
-                  "type": "string"
-                }
-              }
-            },
-            "isAdmin": {
-              "type": "boolean"
-            },
-            "creationTime": {
-              "type": "string",
-              "format": "date-time"
-            }
-          }
+          "properties": {}
         },
-        "supported_sync_modes": ["incremental"],
+        "supported_sync_modes": ["full_refresh", "incremental"],
         "source_defined_cursor": true,
-        "default_cursor_field": ["creationTime"]
+        "default_cursor_field": ["etag"]
       },
       "sync_mode": "incremental",
-      "cursor_field": ["creationTime"],
+      "cursor_field": ["etag"],
       "destination_sync_mode": "append"
     },
     {
