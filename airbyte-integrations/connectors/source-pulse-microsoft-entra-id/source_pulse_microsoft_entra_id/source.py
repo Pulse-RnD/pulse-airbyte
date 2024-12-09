@@ -1,14 +1,18 @@
 from abc import ABC
 from typing import Any, Iterable, List, Mapping, MutableMapping, Optional, Tuple
 import requests
+from airbyte_cdk.sources.streams.http import HttpStream
 from airbyte_cdk.sources import AbstractSource
 from airbyte_cdk.sources.streams import Stream
-from airbyte_cdk.sources.streams.http import HttpStream
-from airbyte_cdk.sources.streams.http.auth import TokenAuthenticator
+from airbyte_cdk.sources.streams.http.requests_native_auth import TokenAuthenticator
+import logging
+
+from airbyte_protocol.models import SyncMode
+
+logger = logging.getLogger("airbyte")
 
 
 def get_token(config: Mapping[str, Any]) -> str:
-    """Retrieve access token from Microsoft Entra ID"""
     response = requests.post(
         url=f"https://login.microsoftonline.com/{config['tenant_id']}/oauth2/v2.0/token",
         headers={"Content-Type": "application/x-www-form-urlencoded"},
@@ -29,9 +33,34 @@ class MicrosoftGraphStream(HttpStream, ABC):
         super().__init__(authenticator=TokenAuthenticator(token=get_token(config)))
         self.config = config
         self._delta_token = None
+        self._state = {}
 
     url_base = "https://graph.microsoft.com/v1.0/"
     primary_key = "id"
+
+    @property
+    def state_checkpoint_interval(self) -> Optional[int]:
+        return 1000
+
+    @property
+    def supported_sync_modes(self) -> List[str]:
+        return ["full_refresh", "incremental"]
+
+    @property
+    def cursor_field(self) -> str:
+        return "id"
+        # we are not really using incremental so just set to id.
+        # doing it so state will be accessible since it is not accessible in full refresh mode
+
+    @property
+    def state(self) -> MutableMapping[str, Any]:
+        return self._state
+
+    @state.setter
+    def state(self, value: MutableMapping[str, Any]) -> None:
+        self._state = value or {}
+        if "delta_token" in value:
+            self._delta_token = value["delta_token"]
 
     def next_page_token(self, response: requests.Response) -> Optional[Mapping[str, Any]]:
         json_response = response.json()
@@ -53,10 +82,10 @@ class MicrosoftGraphStream(HttpStream, ABC):
         return None
 
     def request_params(
-            self,
-            stream_state: Mapping[str, Any] = None,
-            stream_slice: Mapping[str, Any] = None,
-            next_page_token: Mapping[str, Any] = None
+        self,
+        stream_state: Mapping[str, Any] = None,
+        stream_slice: Mapping[str, Any] = None,
+        next_page_token: Mapping[str, Any] = None
     ) -> MutableMapping[str, Any]:
         params = {}
 
@@ -79,39 +108,47 @@ class MicrosoftGraphStream(HttpStream, ABC):
                 record["_ab_cdc_deleted_at"] = True
             yield record
 
-    def get_updated_state(self, current_stream_state: MutableMapping[str, Any], latest_record: Mapping[str, Any]) -> Mapping[str, Any]:
-        # If we've received a new delta token during sync, update the state
-        if self._delta_token:
-            return {"delta_token": self._delta_token}
-        return current_stream_state or {}
+    def read_records(
+        self,
+        sync_mode: SyncMode,
+        cursor_field: List[str] = None,
+        stream_slice: Mapping[str, Any] = None,
+        stream_state: Mapping[str, Any] = None,
+    ) -> Iterable[Mapping[str, Any]]:
+        self._delta_token = stream_state.get("delta_token") if stream_state else None
 
+        for record in super().read_records(sync_mode, cursor_field, stream_slice, stream_state):
+            yield record
+
+        if self._delta_token:
+            self.state = {"delta_token": self._delta_token}
 
 class Users(MicrosoftGraphStream):
     def path(
-            self,
-            stream_state: Mapping[str, Any] = None,
-            stream_slice: Mapping[str, Any] = None,
-            next_page_token: Mapping[str, Any] = None
+        self,
+        stream_state: Mapping[str, Any] = None,
+        stream_slice: Mapping[str, Any] = None,
+        next_page_token: Mapping[str, Any] = None
     ) -> str:
         return "users/delta"
 
 
 class Groups(MicrosoftGraphStream):
     def path(
-            self,
-            stream_state: Mapping[str, Any] = None,
-            stream_slice: Mapping[str, Any] = None,
-            next_page_token: Mapping[str, Any] = None
+        self,
+        stream_state: Mapping[str, Any] = None,
+        stream_slice: Mapping[str, Any] = None,
+        next_page_token: Mapping[str, Any] = None
     ) -> str:
         return "groups/delta"
 
 
 class Applications(MicrosoftGraphStream):
     def path(
-            self,
-            stream_state: Mapping[str, Any] = None,
-            stream_slice: Mapping[str, Any] = None,
-            next_page_token: Mapping[str, Any] = None
+        self,
+        stream_state: Mapping[str, Any] = None,
+        stream_slice: Mapping[str, Any] = None,
+        next_page_token: Mapping[str, Any] = None
     ) -> str:
         return "applications/delta"
 
