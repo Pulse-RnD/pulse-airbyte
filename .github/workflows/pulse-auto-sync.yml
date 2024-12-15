@@ -2,11 +2,14 @@ name: Sync Fork with Upstream (PR)
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Runs daily at midnight
-  workflow_dispatch:  # Allows manual triggering
+    - cron: '0 0 * * 1'  # Runs weekly on Monday at midnight
+  workflow_dispatch:  # Allows manual triggering  push:
   push:
     branches:
       - 'yardenofir/autoUpstreamSync'  # TODO: Remove (Trigger when there's a push to this branch)
+
+permissions:
+  contents: write  # Grant write permissions to GITHUB_TOKEN
 
 jobs:
   sync:
@@ -16,38 +19,36 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Ensures all history is fetched
+          fetch-depth: 0  # Fetch all history to avoid shallow clone issues
 
       - name: Add Upstream Remote
         run: |
           git remote add upstream https://github.com/airbytehq/airbyte.git || echo "Upstream remote already exists"
           git fetch upstream --prune
 
-      - name: Create Sync Branch
+      - name: Create Sync Branch and Attempt Merge
+        id: merge
         run: |
           git config --global user.email "gh-svc@pulse-security.io"
           git config --global user.name "Auto Syncer"
-          git checkout -b sync-upstream-$(date +'%d-%m-%Y_%H-%M')
-          git merge upstream/master --no-edit
-          echo "BRANCH_NAME=syncUpstream/$(date +'%d-%m-%Y_%H-%M')" >> $GITHUB_ENV
+          BRANCH_NAME="syncUpstream/$(date +'%d-%m-%Y_%H-%M')"
+          git checkout -b $BRANCH_NAME
+          git merge --no-commit --no-ff upstream/master || echo "Merge conflicts detected"
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
 
-      - name: Push Sync Branch
-        uses: ad-m/github-push-action@v0.8.0
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ env.BRANCH_NAME }}
-
-      - name: Open Pull Request
+      - name: Open Pull Request (Including Conflicts)
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Automated sync with upstream/master"
           branch: ${{ env.BRANCH_NAME }}
           base: master
-          title: "Sync Upstream Changes - $(date +'%d-%m-%Y')"
+          title: "Weekly Sync with Upstream - $(date +'%d-%m-%Y')"
           body: |
-            This PR syncs the latest changes from the upstream repository into `master`.
-            
-            **Branch:** `{{ env.BRANCH_NAME }}`
+            This PR syncs the latest changes from the upstream repository (`airbytehq/airbyte`) into `master`.
+
+            **Branch:** `${{ env.BRANCH_NAME }}`  
+            **Note:** If there are merge conflicts, please resolve them manually.
           labels: |
             automated
             upstream-sync
