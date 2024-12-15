@@ -36,9 +36,13 @@ jobs:
         run: |
           BRANCH_NAME="syncUpstream/$(date +'%d-%m-%Y_%H-%M')"
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+          
+          # Create a new branch and merge upstream changes
           git checkout -b $BRANCH_NAME
           git merge --no-commit --no-ff upstream/master || echo "Merge conflicts detected"
-          git push origin $BRANCH_NAME --force-with-lease  # Push branch to remote repository
+
+          # Push the branch to the remote repository
+          git push origin $BRANCH_NAME --force-with-lease
 
       - name: Open Pull Request
         uses: peter-evans/create-pull-request@v5
