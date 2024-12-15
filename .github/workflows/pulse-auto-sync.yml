@@ -6,10 +6,11 @@ on:
   workflow_dispatch:  # Allows manual triggering
   push:
     branches:
-      - 'yardenofir/autoUpstreamSync'  # Trigger when there's a push to this branch
+      - 'yardenofir/autoUpstreamSync'
 
 permissions:
-  contents: write  # Grant write permissions to GITHUB_TOKEN
+  contents: write   # Allow writing content to repo
+  workflows: write  # Allow updating workflow files
 
 jobs:
   sync:
@@ -19,7 +20,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Fetch all history to avoid shallow clone issues
+          fetch-depth: 0  # Fetch full history
 
       - name: Configure Git
         run: |
@@ -31,20 +32,14 @@ jobs:
           git remote add upstream https://github.com/airbytehq/airbyte.git || echo "Upstream remote already exists"
           git fetch upstream --prune
 
-      - name: Create Sync Branch and Attempt Merge
-        id: merge
+      - name: Create Sync Branch and Merge Upstream Changes
         run: |
           BRANCH_NAME="syncUpstream/$(date +'%d-%m-%Y_%H-%M')"
-          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
           git checkout -b $BRANCH_NAME
           git merge --no-commit --no-ff upstream/master || echo "Merge conflicts detected"
-          git status  # Display status for debugging
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
 
-      - name: Push Sync Branch
-        run: |
-          git push origin $BRANCH_NAME --force-with-lease
-
-      - name: Open Pull Request (Including Conflicts)
+      - name: Open Pull Request
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -55,7 +50,7 @@ jobs:
           body: |
             This PR syncs the latest changes from the upstream repository (`airbytehq/airbyte`) into `master`.
 
-            **Branch:** `${{ env.BRANCH_NAME }}`  
+            **Branch:** `${{ env.BRANCH_NAME }}`
             **Note:** If there are merge conflicts, please resolve them manually.
           labels: |
             automated
