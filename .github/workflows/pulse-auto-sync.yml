@@ -3,10 +3,10 @@ name: Sync Fork with Upstream (PR)
 on:
   schedule:
     - cron: '0 0 * * 1'  # Runs weekly on Monday at midnight
-  workflow_dispatch:  # Allows manual triggering  push:
+  workflow_dispatch:  # Allows manual triggering
   push:
     branches:
-      - 'yardenofir/autoUpstreamSync'  # TODO: Remove (Trigger when there's a push to this branch)
+      - 'yardenofir/autoUpstreamSync'  # Trigger when there's a push to this branch
 
 permissions:
   contents: write  # Grant write permissions to GITHUB_TOKEN
@@ -21,6 +21,11 @@ jobs:
         with:
           fetch-depth: 0  # Fetch all history to avoid shallow clone issues
 
+      - name: Configure Git
+        run: |
+          git config --global user.email "gh-svc@pulse-security.io"
+          git config --global user.name "Auto Syncer"
+
       - name: Add Upstream Remote
         run: |
           git remote add upstream https://github.com/airbytehq/airbyte.git || echo "Upstream remote already exists"
@@ -29,12 +34,15 @@ jobs:
       - name: Create Sync Branch and Attempt Merge
         id: merge
         run: |
-          git config --global user.email "gh-svc@pulse-security.io"
-          git config --global user.name "Auto Syncer"
           BRANCH_NAME="syncUpstream/$(date +'%d-%m-%Y_%H-%M')"
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
           git checkout -b $BRANCH_NAME
           git merge --no-commit --no-ff upstream/master || echo "Merge conflicts detected"
-          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+          git status  # Display status for debugging
+
+      - name: Push Sync Branch
+        run: |
+          git push origin $BRANCH_NAME --force-with-lease
 
       - name: Open Pull Request (Including Conflicts)
         uses: peter-evans/create-pull-request@v5
