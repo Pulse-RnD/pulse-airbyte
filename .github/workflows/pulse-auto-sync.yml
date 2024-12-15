@@ -9,8 +9,7 @@ on:
       - 'yardenofir/autoUpstreamSync'
 
 permissions:
-  contents: write   # Allow writing content to repo
-  workflows: write  # Allow updating workflow files
+  contents: write  # Allow write access to content (files in the repository)
 
 jobs:
   sync:
