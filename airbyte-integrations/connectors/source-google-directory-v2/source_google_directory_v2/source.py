@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Iterable, List, Mapping, MutableMapping, Optional, Tuple
 
 import requests
+from airbyte_cdk import IncrementalMixin
 from airbyte_cdk.sources import AbstractSource
 from airbyte_cdk.sources.streams import Stream
 from airbyte_cdk.sources.streams.http import HttpStream
@@ -272,10 +273,18 @@ class OAuthAppsByUser(GoogleDirectoryV2Stream):
                 break
 
 
-class IncrementalGoogleDirectoryV2Stream(GoogleDirectoryV2Stream, ABC):
+class IncrementalGoogleDirectoryV2Stream(GoogleDirectoryV2Stream, IncrementalMixin, ABC):
     """Base class for incremental streams in Google Directory"""
 
     state_checkpoint_interval = 100  # Save state every 100 records
+
+    @property
+    def state(self):
+        return self._state
+
+    @state.setter
+    def state(self, value):
+        self._state[self.cursor_field] = value[self.cursor_field]
 
     @staticmethod
     def _emit_state_message(stream_name: str, state: Mapping[str, Any]) -> AirbyteMessage:
@@ -293,17 +302,17 @@ class IncrementalGoogleDirectoryV2Stream(GoogleDirectoryV2Stream, ABC):
             )
         )
 
-    @abstractmethod
-    def get_updated_state(
-            self,
-            current_stream_state: MutableMapping[str, Any],
-            latest_record: Mapping[str, Any]
-    ) -> Mapping[str, Any]:
-        """
-        Abstract method to be implemented by concrete classes
-        to define their own state update logic
-        """
-        pass
+    # @abstractmethod
+    # def get_updated_state(
+    #         self,
+    #         current_stream_state: MutableMapping[str, Any],
+    #         latest_record: Mapping[str, Any]
+    # ) -> Mapping[str, Any]:
+    #     """
+    #     Abstract method to be implemented by concrete classes
+    #     to define their own state update logic
+    #     """
+    #     pass
 
 
 class IncrementalUsers(IncrementalGoogleDirectoryV2Stream):
@@ -339,24 +348,24 @@ class IncrementalUsers(IncrementalGoogleDirectoryV2Stream):
 
         return should_emit
 
-    def get_updated_state(
-            self,
-            current_stream_state: MutableMapping[str, Any],
-            latest_record: Mapping[str, Any]
-    ) -> Mapping[str, Any]:
-        """Calculate new state based on latest record without modifying current state"""
-        new_state = {
-            # TODO: Optimize this to avoid copying the entire state
-            'user_etags': current_stream_state.get('user_etags', {}).copy()
-        }
-
-        user_id = latest_record.get('id')
-        latest_etag = latest_record.get('etag')
-
-        if user_id and latest_etag:
-            new_state['user_etags'][user_id] = latest_etag
-
-        return new_state
+    # def get_updated_state(
+    #         self,
+    #         current_stream_state: MutableMapping[str, Any],
+    #         latest_record: Mapping[str, Any]
+    # ) -> Mapping[str, Any]:
+    #     """Calculate new state based on latest record without modifying current state"""
+    #     new_state = {
+    #         # TODO: Optimize this to avoid copying the entire state
+    #         'user_etags': current_stream_state.get('user_etags', {}).copy()
+    #     }
+    #
+    #     user_id = latest_record.get('id')
+    #     latest_etag = latest_record.get('etag')
+    #
+    #     if user_id and latest_etag:
+    #         new_state['user_etags'][user_id] = latest_etag
+    #
+    #     return new_state
 
     def read_records(
             self,
@@ -366,51 +375,60 @@ class IncrementalUsers(IncrementalGoogleDirectoryV2Stream):
             stream_state: Mapping[str, Any] = None,
     ) -> Iterable[Mapping[str, Any]]:
         self.logger.info(f"Starting read_records with sync_mode={sync_mode}, cursor_field={cursor_field}, stream_state={stream_state}")
-        try:
-            current_state = stream_state or {}
-            page_token = None
-            records_processed = 0
 
-            while True:
-                try:
-                    self.logger.info("Fetching users from API")
-                    request = self.service.users().list(
-                        customer='my_customer',
-                        maxResults=100,
-                        pageToken=page_token,
-                        orderBy='email'
-                    )
-                    response = request.execute()
-                    users = response.get('users', [])
-                    self.logger.info(f"Fetched {len(users)} users")
+        # Extract state from the incoming state message format
+        if isinstance(stream_state, dict):
+            if "data" in stream_state:
+                stream_state = stream_state.get("data", {}).get("stream", {}).get("stream_state", {})
+            elif "stream" in stream_state:
+                stream_state = stream_state.get("stream", {}).get("stream_state", {})
 
-                    for user in users:
-                        if self._should_emit(user, current_state):
-                            current_state = self.get_updated_state(current_state, user)
+        current_state = stream_state or {}
+        self.logger.info(f"Initial state: {current_state}")
+
+        page_token = None
+        records_processed = 0
+
+        while True:
+            try:
+                request = self.service.users().list(
+                    customer='my_customer',
+                    maxResults=100,
+                    pageToken=page_token,
+                    orderBy='email'
+                )
+                response = request.execute()
+                users = response.get('users', [])
+                self.logger.info(f"Fetched {len(users)} users")
+
+                for user in users:
+                    # Always update state for every user we see
+                    current_state = self.get_updated_state(current_state, user)
+
+                    if sync_mode == "incremental":
+                        if self._should_emit(user, stream_state):  # Note: comparing against original state
                             records_processed += 1
 
                             if records_processed % self.state_checkpoint_interval == 0:
                                 state_msg = self._emit_state_message(self.name, current_state)
-                                self.logger.info(f"Emitting state checkpoint: {state_msg}")
+                                self.logger.info(f"Emitting state checkpoint: {current_state}")
                                 yield state_msg
 
                             yield user
+                    else:
+                        yield user
 
-                    page_token = response.get('nextPageToken')
-                    if not page_token:
-                        if records_processed > 0:
-                            final_state = self._emit_state_message(self.name, current_state)
-                            self.logger.info(f"Emitting final state: {final_state}")
-                            yield final_state
-                        break
+                page_token = response.get('nextPageToken')
+                if not page_token:
+                    if sync_mode == "incremental":
+                        self.logger.info(f"Emitting final state with {len(current_state.get('user_etags', {}))} users: {current_state}")
+                        yield self._emit_state_message(self.name, current_state)
+                    break
 
-                except Exception as e:
-                    self.logger.error(f"Error in read_records loop: {str(e)}")
-                    raise
+            except Exception as e:
+                self.logger.error(f"Error in read_records loop: {str(e)}")
+                raise
 
-        except Exception as e:
-            self.logger.error(f"Error in read_records: {str(e)}")
-            raise
 
 class SourceGoogleDirectoryV2(AbstractSource):
     """
