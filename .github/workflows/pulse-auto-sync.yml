@@ -9,7 +9,7 @@ on:
       - 'yardenofir/autoUpstreamSync'
 
 permissions:
-  contents: write  # Allow write access to content (files in the repository)
+  contents: write  # Allow write access to content
 
 jobs:
   sync:
@@ -32,11 +32,13 @@ jobs:
           git fetch upstream --prune
 
       - name: Create Sync Branch and Merge Upstream Changes
+        id: create-branch
         run: |
           BRANCH_NAME="syncUpstream/$(date +'%d-%m-%Y_%H-%M')"
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
           git checkout -b $BRANCH_NAME
           git merge --no-commit --no-ff upstream/master || echo "Merge conflicts detected"
-          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+          git push origin $BRANCH_NAME --force-with-lease  # Push branch to remote repository
 
       - name: Open Pull Request
         uses: peter-evans/create-pull-request@v5
