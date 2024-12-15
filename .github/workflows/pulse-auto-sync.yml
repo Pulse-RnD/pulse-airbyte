@@ -1,0 +1,54 @@
+name: Weekly Upstream Sync
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'  # Runs weekly on Monday at midnight
+  push:
+    branches:
+      - 'yardenofir/autoUpstreamSync'  # TODO: Remove (Trigger when there's a push to this branch)
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set Up Git
+        run: |
+          git config user.name "Pulse Auto Sync"
+          git config user.email "gh-svc@pulse-security.io"
+
+      - name: Add Upstream Remote
+        run: |
+          git remote add upstream https://github.com/airbytehq/airbyte.git
+          git fetch upstream
+
+      - name: Create Branch with Date
+        env:
+          DATE: ${{ steps.date.outputs.formatted_date }}
+        id: create_branch
+        run: |
+          BRANCH_NAME="upstreamSync/$(date +'%d-%m-%Y')"
+          git checkout -b $BRANCH_NAME
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+
+      - name: Rebase Upstream Changes
+        run: |
+          git rebase upstream/main
+
+      - name: Push New Branch to Origin
+        run: |
+          git push origin $BRANCH_NAME --force-with-lease
+
+      - name: Open Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ env.BRANCH_NAME }}
+          base: master
+          title: "Weekly Upstream Sync ({{ env.BRANCH_NAME }})"
+          body: |
+            This PR merges changes from the upstream repository into `master`. 
+            Branch created: `{{ env.BRANCH_NAME }}`
