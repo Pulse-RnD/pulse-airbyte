@@ -30,13 +30,13 @@ jobs:
           DATE: ${{ steps.date.outputs.formatted_date }}
         id: create_branch
         run: |
-          BRANCH_NAME="upstreamSync/$(date +'%d-%m-%Y')"
+          BRANCH_NAME="upstreamSync/$(date +'%d-%m-%Y_%H-%M')"
           git checkout -b $BRANCH_NAME
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
 
       - name: Rebase Upstream Changes
         run: |
-          git rebase upstream/main
+          git rebase upstream/master
 
       - name: Push New Branch to Origin
         run: |
