@@ -27,7 +27,7 @@ jobs:
         run: |
           git checkout -b sync-upstream-$(date +'%d-%m-%Y_%H-%M')
           git merge upstream/master --no-edit
-          echo "BRANCH_NAME=sync-upstream-$(date +'%d-%m-%Y_%H-%M')" >> $GITHUB_ENV
+          echo "BRANCH_NAME=syncUpstream/$(date +'%d-%m-%Y_%H-%M')" >> $GITHUB_ENV
 
       - name: Push Sync Branch
         uses: ad-m/github-push-action@v0.8.0
