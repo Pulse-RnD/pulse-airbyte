@@ -1,0 +1,1364 @@
+version: 6.5.2
+
+type: DeclarativeSource
+
+check:
+  type: CheckStream
+  stream_names:
+    - groups
+
+definitions:
+  streams:
+    groups:
+      type: DeclarativeStream
+      name: groups
+      retriever:
+        type: SimpleRetriever
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: /groups/picker
+          http_method: GET
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path:
+              - groups
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/groups"
+    users:
+      type: DeclarativeStream
+      name: users
+      retriever:
+        type: SimpleRetriever
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: /users/search
+          http_method: GET
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path: []
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/users"
+    applicationrole:
+      type: DeclarativeStream
+      name: applicationrole
+      retriever:
+        type: SimpleRetriever
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: /applicationrole
+          http_method: GET
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path: []
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/applicationrole"
+    roles:
+      type: DeclarativeStream
+      name: roles
+      retriever:
+        type: SimpleRetriever
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: /role
+          http_method: GET
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path: []
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/roles"
+    permissions:
+      type: DeclarativeStream
+      name: permissions
+      retriever:
+        type: SimpleRetriever
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: /permissions
+          http_method: GET
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path:
+              - permissions
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/permissions"
+  base_requester:
+    type: HttpRequester
+    url_base: https://{{config['domain']}}/rest/api/3
+    authenticator:
+      type: BasicHttpAuthenticator
+      username: "{{ config[\"username\"] }}"
+      password: "{{ config[\"password\"] }}"
+
+streams:
+  - $ref: "#/definitions/streams/groups"
+  - $ref: "#/definitions/streams/users"
+  - $ref: "#/definitions/streams/applicationrole"
+  - $ref: "#/definitions/streams/roles"
+  - $ref: "#/definitions/streams/permissions"
+
+spec:
+  type: Spec
+  connection_specification:
+    type: object
+    $schema: http://json-schema.org/draft-07/schema#
+    required:
+      - domain
+      - username
+    properties:
+      domain:
+        type: string
+        title: Domain
+        order: 0
+      username:
+        type: string
+        title: Username
+        order: 1
+      password:
+        type: string
+        title: Password
+        always_show: true
+        airbyte_secret: true
+        order: 2
+    additionalProperties: true
+
+metadata:
+  autoImportSchema:
+    groups: true
+    users: true
+    applicationrole: true
+    roles: true
+    permissions: true
+  testedStreams:
+    groups:
+      streamHash: 56d4bf719959fbf6be94ee53e5e2b22a80b306b3
+      hasResponse: true
+      responsesAreSuccessful: true
+      hasRecords: true
+      primaryKeysArePresent: true
+      primaryKeysAreUnique: true
+    users:
+      streamHash: 3a428a672fc922427f325ef5cb7ff60ca7f39699
+      hasResponse: true
+      responsesAreSuccessful: true
+      hasRecords: true
+      primaryKeysArePresent: true
+      primaryKeysAreUnique: true
+    applicationrole:
+      streamHash: 735ecf906a42c0a1bb86c149cdc6c2496a5f16cf
+      hasResponse: true
+      responsesAreSuccessful: true
+      hasRecords: true
+      primaryKeysArePresent: true
+      primaryKeysAreUnique: true
+    roles:
+      streamHash: 890f2f9b6b23319cebb41ad24b1256c5bf081b70
+      hasResponse: true
+      responsesAreSuccessful: true
+      hasRecords: true
+      primaryKeysArePresent: true
+      primaryKeysAreUnique: true
+    permissions:
+      streamHash: fb9bf2df967ca63e5d6a0e8f6f9fe4f75457a871
+      hasResponse: true
+      responsesAreSuccessful: true
+      hasRecords: true
+      primaryKeysArePresent: true
+      primaryKeysAreUnique: true
+  assist: {}
+
+schemas:
+  groups:
+    type: object
+    $schema: http://json-schema.org/schema#
+    additionalProperties: true
+    properties:
+      groupId:
+        type:
+          - string
+          - "null"
+      html:
+        type:
+          - string
+          - "null"
+      labels:
+        type:
+          - array
+          - "null"
+        items:
+          type:
+            - object
+            - "null"
+          properties:
+            type:
+              type:
+                - string
+                - "null"
+            text:
+              type:
+                - string
+                - "null"
+            title:
+              type:
+                - string
+                - "null"
+      name:
+        type:
+          - string
+          - "null"
+  users:
+    type: object
+    $schema: http://json-schema.org/schema#
+    additionalProperties: true
+    properties:
+      accountId:
+        type:
+          - string
+          - "null"
+      accountType:
+        type:
+          - string
+          - "null"
+      active:
+        type:
+          - boolean
+          - "null"
+      avatarUrls:
+        type:
+          - object
+          - "null"
+        properties:
+          16x16:
+            type:
+              - string
+              - "null"
+          24x24:
+            type:
+              - string
+              - "null"
+          32x32:
+            type:
+              - string
+              - "null"
+          48x48:
+            type:
+              - string
+              - "null"
+      displayName:
+        type:
+          - string
+          - "null"
+      emailAddress:
+        type:
+          - string
+          - "null"
+      locale:
+        type:
+          - string
+          - "null"
+      self:
+        type:
+          - string
+          - "null"
+  applicationrole:
+    type: object
+    $schema: http://json-schema.org/schema#
+    additionalProperties: true
+    properties:
+      defaultGroups:
+        type:
+          - array
+          - "null"
+        items:
+          type:
+            - string
+            - "null"
+      defaultGroupsDetails:
+        type:
+          - array
+          - "null"
+        items:
+          type:
+            - object
+            - "null"
+          properties:
+            groupId:
+              type:
+                - string
+                - "null"
+            name:
+              type:
+                - string
+                - "null"
+            self:
+              type:
+                - string
+                - "null"
+      defined:
+        type:
+          - boolean
+          - "null"
+      groupDetails:
+        type:
+          - array
+          - "null"
+        items:
+          type:
+            - object
+            - "null"
+          properties:
+            groupId:
+              type:
+                - string
+                - "null"
+            name:
+              type:
+                - string
+                - "null"
+            self:
+              type:
+                - string
+                - "null"
+      groups:
+        type:
+          - array
+          - "null"
+        items:
+          type:
+            - string
+            - "null"
+      hasUnlimitedSeats:
+        type:
+          - boolean
+          - "null"
+      key:
+        type:
+          - string
+          - "null"
+      name:
+        type:
+          - string
+          - "null"
+      numberOfSeats:
+        type:
+          - number
+          - "null"
+      platform:
+        type:
+          - boolean
+          - "null"
+      remainingSeats:
+        type:
+          - number
+          - "null"
+      selectedByDefault:
+        type:
+          - boolean
+          - "null"
+      userCount:
+        type:
+          - number
+          - "null"
+      userCountDescription:
+        type:
+          - string
+          - "null"
+  roles:
+    type: object
+    $schema: http://json-schema.org/schema#
+    additionalProperties: true
+    properties:
+      description:
+        type:
+          - string
+          - "null"
+      actors:
+        type:
+          - array
+          - "null"
+        items:
+          type:
+            - object
+            - "null"
+          properties:
+            type:
+              type:
+                - string
+                - "null"
+            actorUser:
+              type:
+                - object
+                - "null"
+              properties:
+                accountId:
+                  type:
+                    - string
+                    - "null"
+            displayName:
+              type:
+                - string
+                - "null"
+            id:
+              type:
+                - number
+                - "null"
+      id:
+        type:
+          - number
+          - "null"
+      name:
+        type:
+          - string
+          - "null"
+      self:
+        type:
+          - string
+          - "null"
+  permissions:
+    type: object
+    $schema: http://json-schema.org/schema#
+    additionalProperties: true
+    properties:
+      ADD_COMMENTS:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      ADMINISTER:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      ADMINISTER_PROJECTS:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      ASSIGNABLE_USER:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      ASSIGN_ISSUES:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      BROWSE_PROJECTS:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      BULK_CHANGE:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      CLOSE_ISSUES:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      CREATE_ATTACHMENTS:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      CREATE_ISSUES:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      CREATE_PROJECT:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      CREATE_SHARED_OBJECTS:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      DELETE_ALL_ATTACHMENTS:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      DELETE_ALL_COMMENTS:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      DELETE_ALL_WORKLOGS:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      DELETE_ISSUES:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      DELETE_OWN_ATTACHMENTS:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      DELETE_OWN_COMMENTS:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      DELETE_OWN_WORKLOGS:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      EDIT_ALL_COMMENTS:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      EDIT_ALL_WORKLOGS:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      EDIT_ISSUES:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      EDIT_ISSUE_LAYOUT:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      EDIT_OWN_COMMENTS:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      EDIT_OWN_WORKLOGS:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      EDIT_WORKFLOW:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      LINK_ISSUES:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      MANAGE_GROUP_FILTER_SUBSCRIPTIONS:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      MANAGE_WATCHERS:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      MODIFY_REPORTER:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      MOVE_ISSUES:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      RESOLVE_ISSUES:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      SCHEDULE_ISSUES:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      SERVICEDESK_AGENT:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      SET_ISSUE_SECURITY:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      SYSTEM_ADMIN:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      TRANSITION_ISSUES:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      UNARCHIVE_ISSUES:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      USER_PICKER:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      VIEW_DEV_TOOLS:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      VIEW_READONLY_WORKFLOW:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      VIEW_VOTERS_AND_WATCHERS:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      WORK_ON_ISSUES:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+      com.atlassian.atlas.jira__jira-townsquare-link-unconnected-issue-glance-view-permission:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          description:
+            type:
+              - string
+              - "null"
+          key:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"

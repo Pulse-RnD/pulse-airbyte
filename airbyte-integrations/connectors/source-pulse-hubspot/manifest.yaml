@@ -1,0 +1,334 @@
+version: 6.5.2
+
+type: DeclarativeSource
+
+check:
+  type: CheckStream
+  stream_names:
+    - users
+
+definitions:
+  streams:
+    users:
+      type: DeclarativeStream
+      name: users
+      retriever:
+        type: SimpleRetriever
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: /settings/v3/users
+          http_method: GET
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path:
+              - results
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/users"
+    teams:
+      type: DeclarativeStream
+      name: teams
+      retriever:
+        type: SimpleRetriever
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: /settings/v3/users/teams
+          http_method: GET
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path:
+              - results
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/teams"
+    roles:
+      type: DeclarativeStream
+      name: roles
+      retriever:
+        type: SimpleRetriever
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: /settings/v3/users/roles
+          http_method: GET
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path:
+              - results
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/roles"
+    activity_login:
+      type: DeclarativeStream
+      name: activity_login
+      retriever:
+        type: SimpleRetriever
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: /account-info/v3/activity/login
+          http_method: GET
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path:
+              - results
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/activity_login"
+    activity_security:
+      type: DeclarativeStream
+      name: activity_security
+      retriever:
+        type: SimpleRetriever
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: /account-info/v3/activity/security
+          http_method: GET
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path:
+              - results
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/activity_security"
+  base_requester:
+    type: HttpRequester
+    url_base: https://api.hubapi.com
+    authenticator:
+      type: BearerAuthenticator
+      api_token: "{{ config[\"api_key_2\"] }}"
+
+streams:
+  - $ref: "#/definitions/streams/users"
+  - $ref: "#/definitions/streams/teams"
+  - $ref: "#/definitions/streams/roles"
+  - $ref: "#/definitions/streams/activity_login"
+  - $ref: "#/definitions/streams/activity_security"
+
+spec:
+  type: Spec
+  connection_specification:
+    type: object
+    $schema: http://json-schema.org/draft-07/schema#
+    required:
+      - api_key_2
+    properties:
+      api_key_2:
+        type: string
+        order: 0
+        title: API Key
+        airbyte_secret: true
+    additionalProperties: true
+
+metadata:
+  autoImportSchema:
+    users: true
+    teams: true
+    roles: true
+    activity_login: true
+    activity_security: true
+  testedStreams:
+    users:
+      hasRecords: true
+      streamHash: f0cc3b70e832a0c170768d2a434d6c45cdeddf2f
+      hasResponse: true
+      primaryKeysAreUnique: true
+      primaryKeysArePresent: true
+      responsesAreSuccessful: true
+    teams:
+      hasRecords: true
+      streamHash: 2c0e005f2bfe6495d7feb45e969059b3bc957385
+      hasResponse: true
+      primaryKeysAreUnique: true
+      primaryKeysArePresent: true
+      responsesAreSuccessful: true
+    roles:
+      hasRecords: false
+      streamHash: efdce91c5b5246dabbacf321a314bc180b2270be
+      hasResponse: true
+      primaryKeysAreUnique: true
+      primaryKeysArePresent: true
+      responsesAreSuccessful: false
+    activity_login:
+      hasRecords: true
+      streamHash: 10be3d318b55114ebdead414ea16b310e00060ce
+      hasResponse: true
+      primaryKeysAreUnique: true
+      primaryKeysArePresent: true
+      responsesAreSuccessful: true
+    activity_security:
+      hasRecords: true
+      streamHash: 69b853511e7610b24bc9366518077578d1595021
+      hasResponse: true
+      primaryKeysAreUnique: true
+      primaryKeysArePresent: true
+      responsesAreSuccessful: true
+  assist: {}
+
+schemas:
+  users:
+    type: object
+    $schema: http://json-schema.org/schema#
+    additionalProperties: true
+    properties:
+      email:
+        type:
+          - string
+          - "null"
+      firstName:
+        type:
+          - string
+          - "null"
+      id:
+        type:
+          - string
+          - "null"
+      lastName:
+        type:
+          - string
+          - "null"
+      primaryTeamId:
+        type:
+          - string
+          - "null"
+      roleIds:
+        type:
+          - array
+          - "null"
+      superAdmin:
+        type:
+          - boolean
+          - "null"
+  teams:
+    type: object
+    $schema: http://json-schema.org/schema#
+    additionalProperties: true
+    properties:
+      id:
+        type:
+          - string
+          - "null"
+      name:
+        type:
+          - string
+          - "null"
+      secondaryUserIds:
+        type:
+          - array
+          - "null"
+      userIds:
+        type:
+          - array
+          - "null"
+        items:
+          type:
+            - string
+            - "null"
+  roles:
+    type: object
+    $schema: http://json-schema.org/draft-07/schema#
+    additionalProperties: true
+    properties: {}
+  activity_login:
+    type: object
+    $schema: http://json-schema.org/schema#
+    additionalProperties: true
+    properties:
+      countryCode:
+        type:
+          - string
+          - "null"
+      email:
+        type:
+          - string
+          - "null"
+      id:
+        type:
+          - string
+          - "null"
+      ipAddress:
+        type:
+          - string
+          - "null"
+      location:
+        type:
+          - string
+          - "null"
+      loginAt:
+        type:
+          - string
+          - "null"
+      loginSucceeded:
+        type:
+          - boolean
+          - "null"
+      regionCode:
+        type:
+          - string
+          - "null"
+      userAgent:
+        type:
+          - string
+          - "null"
+      userId:
+        type:
+          - number
+          - "null"
+  activity_security:
+    type: object
+    $schema: http://json-schema.org/schema#
+    additionalProperties: true
+    properties:
+      type:
+        type:
+          - string
+          - "null"
+      actingUser:
+        type:
+          - string
+          - "null"
+      countryCode:
+        type:
+          - string
+          - "null"
+      createdAt:
+        type:
+          - string
+          - "null"
+      id:
+        type:
+          - string
+          - "null"
+      infoUrl:
+        type:
+          - string
+          - "null"
+      ipAddress:
+        type:
+          - string
+          - "null"
+      objectId:
+        type:
+          - string
+          - "null"
+      regionCode:
+        type:
+          - string
+          - "null"
+      userId:
+        type:
+          - number
+          - "null"
