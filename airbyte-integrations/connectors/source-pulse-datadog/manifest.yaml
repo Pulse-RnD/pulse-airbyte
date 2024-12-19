@@ -1,0 +1,953 @@
+version: 6.5.2
+
+type: DeclarativeSource
+
+check:
+  type: CheckStream
+  stream_names:
+    - users
+
+definitions:
+  streams:
+    audit:
+      type: DeclarativeStream
+      name: audit
+      retriever:
+        type: SimpleRetriever
+        paginator:
+          type: DefaultPaginator
+          page_size_option:
+            type: RequestOption
+            field_name: page[size]
+            inject_into: request_parameter
+          page_token_option:
+            type: RequestOption
+            field_name: page[number]
+            inject_into: request_parameter
+          pagination_strategy:
+            type: PageIncrement
+            page_size: 100
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: v2/audit/events
+          http_method: GET
+          request_headers:
+            DD-APPLICATION-KEY: "{{ config['application_key'] }}"
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path:
+              - data
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/audit"
+      transformations:
+        - type: RemoveFields
+          field_pointers:
+            - - relationships
+    roles:
+      type: DeclarativeStream
+      name: roles
+      retriever:
+        type: SimpleRetriever
+        paginator:
+          type: DefaultPaginator
+          page_size_option:
+            type: RequestOption
+            field_name: page[size]
+            inject_into: request_parameter
+          page_token_option:
+            type: RequestOption
+            field_name: page[number]
+            inject_into: request_parameter
+          pagination_strategy:
+            type: PageIncrement
+            page_size: 100
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: v2/roles
+          http_method: GET
+          request_headers:
+            DD-APPLICATION-KEY: "{{ config['application_key'] }}"
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path:
+              - data
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/roles"
+      transformations:
+        - type: RemoveFields
+          field_pointers:
+            - - relationships
+    teams:
+      type: DeclarativeStream
+      name: teams
+      retriever:
+        type: SimpleRetriever
+        paginator:
+          type: DefaultPaginator
+          page_size_option:
+            type: RequestOption
+            field_name: page[size]
+            inject_into: request_parameter
+          page_token_option:
+            type: RequestOption
+            field_name: page[number]
+            inject_into: request_parameter
+          pagination_strategy:
+            type: PageIncrement
+            page_size: 100
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: v2/team
+          http_method: GET
+          request_headers:
+            DD-APPLICATION-KEY: "{{ config['application_key'] }}"
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path:
+              - data
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/teams"
+      transformations:
+        - type: RemoveFields
+          field_pointers:
+            - - relationships
+    users:
+      type: DeclarativeStream
+      name: users
+      retriever:
+        type: SimpleRetriever
+        paginator:
+          type: DefaultPaginator
+          page_size_option:
+            type: RequestOption
+            field_name: page[size]
+            inject_into: request_parameter
+          page_token_option:
+            type: RequestOption
+            field_name: page[number]
+            inject_into: request_parameter
+          pagination_strategy:
+            type: PageIncrement
+            page_size: 100
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: v2/users
+          http_method: GET
+          request_headers:
+            DD-APPLICATION-KEY: "{{ config['application_key'] }}"
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path:
+              - data
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/users"
+      transformations:
+        - type: RemoveFields
+          field_pointers:
+            - - relationships
+    api_keys:
+      type: DeclarativeStream
+      name: api_keys
+      retriever:
+        type: SimpleRetriever
+        paginator:
+          type: DefaultPaginator
+          page_size_option:
+            type: RequestOption
+            field_name: page[size]
+            inject_into: request_parameter
+          page_token_option:
+            type: RequestOption
+            field_name: page[number]
+            inject_into: request_parameter
+          pagination_strategy:
+            type: PageIncrement
+            page_size: 100
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: v2/api_keys
+          http_method: GET
+          request_headers:
+            DD-APPLICATION-KEY: "{{ config['application_key'] }}"
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path:
+              - data
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/api_keys"
+      transformations:
+        - type: RemoveFields
+          field_pointers:
+            - - relationships
+    roles_users:
+      type: DeclarativeStream
+      name: roles_users
+      retriever:
+        type: SimpleRetriever
+        paginator:
+          type: DefaultPaginator
+          page_size_option:
+            type: RequestOption
+            field_name: page[size]
+            inject_into: request_parameter
+          page_token_option:
+            type: RequestOption
+            field_name: page[number]
+            inject_into: request_parameter
+          pagination_strategy:
+            type: PageIncrement
+            page_size: 100
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: v2/roles/{{stream_partition['role_id']}}/users
+          http_method: GET
+          request_headers:
+            DD-APPLICATION-KEY: "{{ config['application_key'] }}"
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path:
+              - data
+        partition_router:
+          type: SubstreamPartitionRouter
+          parent_stream_configs:
+            - type: ParentStreamConfig
+              stream:
+                $ref: "#/definitions/streams/roles"
+              parent_key: id
+              partition_field: role_id
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/roles_users"
+      transformations:
+        - type: RemoveFields
+          field_pointers:
+            - - relationships
+        - type: AddFields
+          fields:
+            - path:
+                - role_id
+              value: "{{stream_partition['role_id']}}"
+    application_keys:
+      type: DeclarativeStream
+      name: application_keys
+      retriever:
+        type: SimpleRetriever
+        paginator:
+          type: DefaultPaginator
+          page_size_option:
+            type: RequestOption
+            field_name: page[size]
+            inject_into: request_parameter
+          page_token_option:
+            type: RequestOption
+            field_name: page[number]
+            inject_into: request_parameter
+          pagination_strategy:
+            type: PageIncrement
+            page_size: 100
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: v2/application_keys
+          http_method: GET
+          request_headers:
+            DD-APPLICATION-KEY: "{{ config['application_key'] }}"
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path:
+              - data
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/application_keys"
+      transformations:
+        - type: RemoveFields
+          field_pointers:
+            - - relationships
+    team_memberships:
+      type: DeclarativeStream
+      name: team_memberships
+      retriever:
+        type: SimpleRetriever
+        paginator:
+          type: DefaultPaginator
+          page_size_option:
+            type: RequestOption
+            field_name: page[size]
+            inject_into: request_parameter
+          page_token_option:
+            type: RequestOption
+            field_name: page[number]
+            inject_into: request_parameter
+          pagination_strategy:
+            type: PageIncrement
+            page_size: 100
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: v2/team/{{stream_partition['team_id']}}/memberships
+          http_method: GET
+          request_headers:
+            DD-APPLICATION-KEY: "{{ config['application_key'] }}"
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path:
+              - data
+        partition_router:
+          type: SubstreamPartitionRouter
+          parent_stream_configs:
+            - type: ParentStreamConfig
+              stream:
+                $ref: "#/definitions/streams/teams"
+              parent_key: id
+              partition_field: team_id
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/team_memberships"
+      transformations:
+        - type: AddFields
+          fields:
+            - path:
+                - team_id
+              value: "{{stream_partition['team_id']}}"
+    roles_permissions:
+      type: DeclarativeStream
+      name: roles_permissions
+      retriever:
+        type: SimpleRetriever
+        paginator:
+          type: DefaultPaginator
+          page_size_option:
+            type: RequestOption
+            field_name: page[size]
+            inject_into: request_parameter
+          page_token_option:
+            type: RequestOption
+            field_name: page[number]
+            inject_into: request_parameter
+          pagination_strategy:
+            type: PageIncrement
+            page_size: 100
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: v2/roles/{{stream_partition['role_id']}}/permissions
+          http_method: GET
+          request_headers:
+            DD-APPLICATION-KEY: "{{ config['application_key'] }}"
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path:
+              - data
+        partition_router:
+          type: SubstreamPartitionRouter
+          parent_stream_configs:
+            - type: ParentStreamConfig
+              stream:
+                $ref: "#/definitions/streams/roles"
+              parent_key: id
+              partition_field: role_id
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/roles_permissions"
+      transformations:
+        - type: RemoveFields
+          field_pointers:
+            - - relationships
+        - type: AddFields
+          fields:
+            - path:
+                - role_id
+              value: "{{stream_partition['role_id']}}"
+  base_requester:
+    type: HttpRequester
+    url_base: https://api.{{ config['site'] }}/api/
+    authenticator:
+      type: ApiKeyAuthenticator
+      api_token: "{{ config[\"api_key\"] }}"
+      inject_into:
+        type: RequestOption
+        field_name: DD-API-KEY
+        inject_into: header
+
+streams:
+  - $ref: "#/definitions/streams/users"
+  - $ref: "#/definitions/streams/roles"
+  - $ref: "#/definitions/streams/roles_users"
+  - $ref: "#/definitions/streams/roles_permissions"
+  - $ref: "#/definitions/streams/teams"
+  - $ref: "#/definitions/streams/team_memberships"
+  - $ref: "#/definitions/streams/api_keys"
+  - $ref: "#/definitions/streams/application_keys"
+  - $ref: "#/definitions/streams/audit"
+
+spec:
+  type: Spec
+  connection_specification:
+    type: object
+    $schema: http://json-schema.org/draft-07/schema#
+    required:
+      - api_key
+      - application_key
+    properties:
+      site:
+        type: string
+        description: The site where Datadog data resides in.
+        enum:
+          - datadoghq.com
+          - us3.datadoghq.com
+          - us5.datadoghq.com
+          - datadoghq.eu
+          - ddog-gov.com
+        order: 2
+        title: Site
+        default: datadoghq.com
+      api_key:
+        type: string
+        description: Datadog API key
+        order: 0
+        title: API Key
+        airbyte_secret: true
+      application_key:
+        type: string
+        description: Datadog application key
+        order: 1
+        title: Application Key
+        airbyte_secret: true
+    additionalProperties: true
+
+metadata:
+  assist: {}
+  testedStreams:
+    audit:
+      hasRecords: false
+      streamHash: aa620e31da57565c49b0ef6050d439b822018d53
+      hasResponse: true
+      primaryKeysAreUnique: true
+      primaryKeysArePresent: true
+      responsesAreSuccessful: true
+    roles:
+      hasRecords: true
+      streamHash: b995e31afae9abeed75ee7a33b38ecac151a293a
+      hasResponse: true
+      primaryKeysAreUnique: true
+      primaryKeysArePresent: true
+      responsesAreSuccessful: true
+    teams:
+      hasRecords: true
+      streamHash: 2b8edc538b53b0a2fea3da69691ae879ede83a9c
+      hasResponse: true
+      primaryKeysAreUnique: true
+      primaryKeysArePresent: true
+      responsesAreSuccessful: true
+    users:
+      hasRecords: true
+      streamHash: 91fe997fb8fb072892cc1a2804bdb0a09e79c70e
+      hasResponse: true
+      primaryKeysAreUnique: true
+      primaryKeysArePresent: true
+      responsesAreSuccessful: true
+    api_keys:
+      hasRecords: true
+      streamHash: acd5479a453cef416fecaa8aa1f11a85af8d9797
+      hasResponse: true
+      primaryKeysAreUnique: true
+      primaryKeysArePresent: true
+      responsesAreSuccessful: true
+    roles_users:
+      hasRecords: true
+      streamHash: eaf3c040abf16c12d4ba6a9580c15de0a71bf427
+      hasResponse: true
+      primaryKeysAreUnique: true
+      primaryKeysArePresent: true
+      responsesAreSuccessful: true
+    application_keys:
+      hasRecords: true
+      streamHash: 261b8ad66bf888304c4ce77492a3a17f290aa424
+      hasResponse: true
+      primaryKeysAreUnique: true
+      primaryKeysArePresent: true
+      responsesAreSuccessful: true
+    team_memberships:
+      hasRecords: true
+      streamHash: ecaaa5140609777ec90359a9d86a0967d7230ce4
+      hasResponse: true
+      primaryKeysAreUnique: true
+      primaryKeysArePresent: true
+      responsesAreSuccessful: true
+    roles_permissions:
+      hasRecords: true
+      streamHash: 9cb856f812c989bafc125a2e4e0924ebb846dbfc
+      hasResponse: true
+      primaryKeysAreUnique: true
+      primaryKeysArePresent: true
+      responsesAreSuccessful: true
+  autoImportSchema:
+    audit: true
+    roles: true
+    teams: true
+    users: true
+    api_keys: true
+    roles_users: true
+    application_keys: true
+    team_memberships: true
+    roles_permissions: true
+
+schemas:
+  audit:
+    type: object
+    $schema: http://json-schema.org/draft-07/schema#
+    properties: {}
+    additionalProperties: true
+  roles:
+    type: object
+    $schema: http://json-schema.org/schema#
+    properties:
+      type:
+        type:
+          - string
+          - "null"
+      id:
+        type:
+          - string
+          - "null"
+      attributes:
+        type:
+          - object
+          - "null"
+        properties:
+          name:
+            type:
+              - string
+              - "null"
+          managed:
+            type:
+              - boolean
+              - "null"
+          created_at:
+            type:
+              - string
+              - "null"
+          user_count:
+            type:
+              - number
+              - "null"
+          modified_at:
+            type:
+              - string
+              - "null"
+    additionalProperties: true
+  teams:
+    type: object
+    $schema: http://json-schema.org/schema#
+    properties:
+      type:
+        type:
+          - string
+          - "null"
+      id:
+        type:
+          - string
+          - "null"
+      attributes:
+        type:
+          - object
+          - "null"
+        properties:
+          description:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+          handle:
+            type:
+              - string
+              - "null"
+          created_at:
+            type:
+              - string
+              - "null"
+          is_managed:
+            type:
+              - boolean
+              - "null"
+          link_count:
+            type:
+              - number
+              - "null"
+          user_count:
+            type:
+              - number
+              - "null"
+          modified_at:
+            type:
+              - string
+              - "null"
+    additionalProperties: true
+  users:
+    type: object
+    $schema: http://json-schema.org/schema#
+    properties:
+      type:
+        type:
+          - string
+          - "null"
+      id:
+        type:
+          - string
+          - "null"
+      attributes:
+        type:
+          - object
+          - "null"
+        properties:
+          icon:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+          email:
+            type:
+              - string
+              - "null"
+          title:
+            type:
+              - string
+              - "null"
+          handle:
+            type:
+              - string
+              - "null"
+          status:
+            type:
+              - string
+              - "null"
+          disabled:
+            type:
+              - boolean
+              - "null"
+          verified:
+            type:
+              - boolean
+              - "null"
+          created_at:
+            type:
+              - string
+              - "null"
+          mfa_enabled:
+            type:
+              - boolean
+              - "null"
+          modified_at:
+            type:
+              - string
+              - "null"
+          service_account:
+            type:
+              - boolean
+              - "null"
+          allowed_login_methods:
+            type:
+              - array
+              - "null"
+    additionalProperties: true
+  api_keys:
+    type: object
+    $schema: http://json-schema.org/schema#
+    properties:
+      type:
+        type:
+          - string
+          - "null"
+      id:
+        type:
+          - string
+          - "null"
+      attributes:
+        type:
+          - object
+          - "null"
+        properties:
+          name:
+            type:
+              - string
+              - "null"
+          last4:
+            type:
+              - string
+              - "null"
+          category:
+            type:
+              - string
+              - "null"
+          created_at:
+            type:
+              - string
+              - "null"
+          modified_at:
+            type:
+              - string
+              - "null"
+          date_last_used:
+            type:
+              - string
+              - "null"
+          last_used_date:
+            type:
+              - object
+              - "null"
+            properties:
+              description:
+                type:
+                  - string
+                  - "null"
+              timestamp:
+                type:
+                  - string
+                  - "null"
+          used_in_last_24_hours:
+            type:
+              - boolean
+              - "null"
+          remote_config_read_enabled:
+            type:
+              - boolean
+              - "null"
+    additionalProperties: true
+  roles_users:
+    type: object
+    $schema: http://json-schema.org/schema#
+    properties:
+      type:
+        type:
+          - string
+          - "null"
+      id:
+        type:
+          - string
+          - "null"
+      role_id:
+        type:
+          - string
+          - "null"
+      attributes:
+        type:
+          - object
+          - "null"
+        properties:
+          icon:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+          email:
+            type:
+              - string
+              - "null"
+          handle:
+            type:
+              - string
+              - "null"
+          status:
+            type:
+              - string
+              - "null"
+          disabled:
+            type:
+              - boolean
+              - "null"
+          verified:
+            type:
+              - boolean
+              - "null"
+          created_at:
+            type:
+              - string
+              - "null"
+          modified_at:
+            type:
+              - string
+              - "null"
+          service_account:
+            type:
+              - boolean
+              - "null"
+          allowed_login_methods:
+            type:
+              - array
+              - "null"
+    additionalProperties: true
+  application_keys:
+    type: object
+    $schema: http://json-schema.org/schema#
+    properties:
+      type:
+        type:
+          - string
+          - "null"
+      id:
+        type:
+          - string
+          - "null"
+      attributes:
+        type:
+          - object
+          - "null"
+        properties:
+          name:
+            type:
+              - string
+              - "null"
+          last4:
+            type:
+              - string
+              - "null"
+          scopes:
+            type:
+              - array
+              - "null"
+            items:
+              type:
+                - string
+                - "null"
+          created_at:
+            type:
+              - string
+              - "null"
+    additionalProperties: true
+  team_memberships:
+    type: object
+    $schema: http://json-schema.org/schema#
+    properties:
+      type:
+        type:
+          - string
+          - "null"
+      id:
+        type:
+          - string
+          - "null"
+      team_id:
+        type:
+          - string
+          - "null"
+      attributes:
+        type:
+          - object
+          - "null"
+        properties:
+          provisioned_by_id:
+            type:
+              - string
+              - "null"
+      relationships:
+        type:
+          - object
+          - "null"
+        properties:
+          user:
+            type:
+              - object
+              - "null"
+            properties:
+              data:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  type:
+                    type:
+                      - string
+                      - "null"
+                  id:
+                    type:
+                      - string
+                      - "null"
+    additionalProperties: true
+  roles_permissions:
+    type: object
+    $schema: http://json-schema.org/schema#
+    properties:
+      type:
+        type:
+          - string
+          - "null"
+      id:
+        type:
+          - string
+          - "null"
+      role_id:
+        type:
+          - string
+          - "null"
+      attributes:
+        type:
+          - object
+          - "null"
+        properties:
+          description:
+            type:
+              - string
+              - "null"
+          name:
+            type:
+              - string
+              - "null"
+          created:
+            type:
+              - string
+              - "null"
+          group_name:
+            type:
+              - string
+              - "null"
+          restricted:
+            type:
+              - boolean
+              - "null"
+          display_name:
+            type:
+              - string
+              - "null"
+          display_type:
+            type:
+              - string
+              - "null"
+    additionalProperties: true
