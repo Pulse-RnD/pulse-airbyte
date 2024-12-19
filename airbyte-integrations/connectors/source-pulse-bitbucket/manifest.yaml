@@ -9,52 +9,11 @@ check:
 
 definitions:
   streams:
-    projects:
-      type: DeclarativeStream
-      name: projects
-      retriever:
-        type: SimpleRetriever
-        paginator:
-          type: DefaultPaginator
-          page_token_option:
-            type: RequestOption
-            field_name: page
-            inject_into: request_parameter
-          pagination_strategy:
-            type: PageIncrement
-            start_from_page: 1
-        requester:
-          $ref: "#/definitions/base_requester"
-          path: /workspaces/{{config['workspace_name']}}/projects
-          http_method: GET
-        record_selector:
-          type: RecordSelector
-          extractor:
-            type: DpathExtractor
-            field_path:
-              - values
-      schema_loader:
-        type: InlineSchemaLoader
-        schema:
-          $ref: "#/schemas/projects"
-      transformations:
-        - type: RemoveFields
-          field_pointers:
-            - - type
     repositories:
       type: DeclarativeStream
       name: repositories
       retriever:
         type: SimpleRetriever
-        paginator:
-          type: DefaultPaginator
-          page_token_option:
-            type: RequestOption
-            field_name: page
-            inject_into: request_parameter
-          pagination_strategy:
-            type: PageIncrement
-            start_from_page: 1
         requester:
           $ref: "#/definitions/base_requester"
           path: /repositories/{{config['workspace_name']}}
@@ -65,28 +24,28 @@ definitions:
             type: DpathExtractor
             field_path:
               - values
-      schema_loader:
-        type: InlineSchemaLoader
-        schema:
-          $ref: "#/schemas/repositories"
+        paginator:
+          type: DefaultPaginator
+          page_token_option:
+            type: RequestOption
+            inject_into: request_parameter
+            field_name: page
+          pagination_strategy:
+            type: PageIncrement
+            start_from_page: 1
       transformations:
         - type: RemoveFields
           field_pointers:
             - - type
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/repositories"
     workspace_membership:
       type: DeclarativeStream
       name: workspace_membership
       retriever:
         type: SimpleRetriever
-        paginator:
-          type: DefaultPaginator
-          page_token_option:
-            type: RequestOption
-            field_name: page
-            inject_into: request_parameter
-          pagination_strategy:
-            type: PageIncrement
-            start_from_page: 1
         requester:
           $ref: "#/definitions/base_requester"
           path: /workspaces/{{config['workspace_name']}}/permissions
@@ -97,28 +56,28 @@ definitions:
             type: DpathExtractor
             field_path:
               - values
-      schema_loader:
-        type: InlineSchemaLoader
-        schema:
-          $ref: "#/schemas/workspace_membership"
+        paginator:
+          type: DefaultPaginator
+          page_token_option:
+            type: RequestOption
+            inject_into: request_parameter
+            field_name: page
+          pagination_strategy:
+            type: PageIncrement
+            start_from_page: 1
       transformations:
         - type: RemoveFields
           field_pointers:
             - - type
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/workspace_membership"
     repository_permission:
       type: DeclarativeStream
       name: repository_permission
       retriever:
         type: SimpleRetriever
-        paginator:
-          type: DefaultPaginator
-          page_token_option:
-            type: RequestOption
-            field_name: page
-            inject_into: request_parameter
-          pagination_strategy:
-            type: PageIncrement
-            start_from_page: 1
         requester:
           $ref: "#/definitions/base_requester"
           path: /workspaces/{{config['workspace_name']}}/permissions/repositories
@@ -129,14 +88,87 @@ definitions:
             type: DpathExtractor
             field_path:
               - values
-      schema_loader:
-        type: InlineSchemaLoader
-        schema:
-          $ref: "#/schemas/repository_permission"
+        paginator:
+          type: DefaultPaginator
+          page_token_option:
+            type: RequestOption
+            inject_into: request_parameter
+            field_name: page
+          pagination_strategy:
+            type: PageIncrement
+            start_from_page: 1
       transformations:
         - type: RemoveFields
           field_pointers:
             - - type
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/repository_permission"
+    projects:
+      type: DeclarativeStream
+      name: projects
+      retriever:
+        type: SimpleRetriever
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: /workspaces/{{config['workspace_name']}}/projects
+          http_method: GET
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path:
+              - values
+        paginator:
+          type: DefaultPaginator
+          page_token_option:
+            type: RequestOption
+            inject_into: request_parameter
+            field_name: page
+          pagination_strategy:
+            type: PageIncrement
+            start_from_page: 1
+      transformations:
+        - type: RemoveFields
+          field_pointers:
+            - - type
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/projects"
+    webhooks:
+      type: DeclarativeStream
+      name: webhooks
+      retriever:
+        type: SimpleRetriever
+        requester:
+          $ref: "#/definitions/base_requester"
+          path: /workspaces/{{config['workspace_name']}}/hooks
+          http_method: GET
+        record_selector:
+          type: RecordSelector
+          extractor:
+            type: DpathExtractor
+            field_path:
+              - values
+        paginator:
+          type: DefaultPaginator
+          page_token_option:
+            type: RequestOption
+            inject_into: request_parameter
+            field_name: page
+          pagination_strategy:
+            type: PageIncrement
+            start_from_page: 1
+      transformations:
+        - type: RemoveFields
+          field_pointers:
+            - - type
+      schema_loader:
+        type: InlineSchemaLoader
+        schema:
+          $ref: "#/schemas/webhooks"
   base_requester:
     type: HttpRequester
     url_base: https://api.bitbucket.org/2.0
@@ -149,6 +181,7 @@ streams:
   - $ref: "#/definitions/streams/workspace_membership"
   - $ref: "#/definitions/streams/repository_permission"
   - $ref: "#/definitions/streams/projects"
+  - $ref: "#/definitions/streams/webhooks"
 
 spec:
   type: Spec
@@ -159,27 +192,25 @@ spec:
       - workspace_name
       - api_key
     properties:
+      workspace_name:
+        type: string
+        order: 0
+        title: Workspace name
       api_key:
         type: string
         order: 1
         title: API Key
         airbyte_secret: true
-      workspace_name:
-        type: string
-        order: 0
-        title: Workspace name
     additionalProperties: true
 
 metadata:
-  assist: {}
+  autoImportSchema:
+    repositories: true
+    workspace_membership: true
+    repository_permission: true
+    projects: true
+    webhooks: true
   testedStreams:
-    projects:
-      hasRecords: true
-      streamHash: 047bd6dc9ea7c22e397670d5e8a6414ec64f1404
-      hasResponse: true
-      primaryKeysAreUnique: true
-      primaryKeysArePresent: true
-      responsesAreSuccessful: true
     repositories:
       hasRecords: true
       streamHash: 729a76c1730f66e1aab243d0bba0ff458b9b44cc
@@ -201,26 +232,49 @@ metadata:
       primaryKeysAreUnique: true
       primaryKeysArePresent: true
       responsesAreSuccessful: true
-  autoImportSchema:
-    projects: true
-    repositories: true
-    workspace_membership: true
-    repository_permission: true
+    projects:
+      hasRecords: true
+      streamHash: 047bd6dc9ea7c22e397670d5e8a6414ec64f1404
+      hasResponse: true
+      primaryKeysAreUnique: true
+      primaryKeysArePresent: true
+      responsesAreSuccessful: true
+    webhooks:
+      streamHash: cc94f8c7e2c9ec2b7ec51236b8f8ace76ad9f61c
+      hasResponse: true
+      responsesAreSuccessful: true
+      hasRecords: false
+      primaryKeysArePresent: true
+      primaryKeysAreUnique: true
+  assist: {}
 
 schemas:
-  projects:
+  repositories:
     type: object
     $schema: http://json-schema.org/schema#
+    additionalProperties: true
     properties:
-      key:
+      description:
         type:
           - string
           - "null"
-      name:
+      created_on:
         type:
           - string
           - "null"
-      uuid:
+      fork_policy:
+        type:
+          - string
+          - "null"
+      full_name:
+        type:
+          - string
+          - "null"
+      is_private:
+        type:
+          - boolean
+          - "null"
+      language:
         type:
           - string
           - "null"
@@ -229,24 +283,6 @@ schemas:
           - object
           - "null"
         properties:
-          html:
-            type:
-              - object
-              - "null"
-            properties:
-              href:
-                type:
-                  - string
-                  - "null"
-          self:
-            type:
-              - object
-              - "null"
-            properties:
-              href:
-                type:
-                  - string
-                  - "null"
           avatar:
             type:
               - object
@@ -256,190 +292,7 @@ schemas:
                 type:
                   - string
                   - "null"
-          repositories:
-            type:
-              - object
-              - "null"
-            properties:
-              href:
-                type:
-                  - string
-                  - "null"
-      owner:
-        type:
-          - object
-          - "null"
-        properties:
-          type:
-            type:
-              - string
-              - "null"
-          uuid:
-            type:
-              - string
-              - "null"
-          links:
-            type:
-              - object
-              - "null"
-            properties:
-              html:
-                type:
-                  - object
-                  - "null"
-                properties:
-                  href:
-                    type:
-                      - string
-                      - "null"
-              self:
-                type:
-                  - object
-                  - "null"
-                properties:
-                  href:
-                    type:
-                      - string
-                      - "null"
-              avatar:
-                type:
-                  - object
-                  - "null"
-                properties:
-                  href:
-                    type:
-                      - string
-                      - "null"
-          username:
-            type:
-              - string
-              - "null"
-          display_name:
-            type:
-              - string
-              - "null"
-      workspace:
-        type:
-          - object
-          - "null"
-        properties:
-          type:
-            type:
-              - string
-              - "null"
-          name:
-            type:
-              - string
-              - "null"
-          slug:
-            type:
-              - string
-              - "null"
-          uuid:
-            type:
-              - string
-              - "null"
-          links:
-            type:
-              - object
-              - "null"
-            properties:
-              html:
-                type:
-                  - object
-                  - "null"
-                properties:
-                  href:
-                    type:
-                      - string
-                      - "null"
-              self:
-                type:
-                  - object
-                  - "null"
-                properties:
-                  href:
-                    type:
-                      - string
-                      - "null"
-              avatar:
-                type:
-                  - object
-                  - "null"
-                properties:
-                  href:
-                    type:
-                      - string
-                      - "null"
-      created_on:
-        type:
-          - string
-          - "null"
-      is_private:
-        type:
-          - boolean
-          - "null"
-      updated_on:
-        type:
-          - string
-          - "null"
-      has_publicly_visible_repos:
-        type:
-          - boolean
-          - "null"
-    additionalProperties: true
-  repositories:
-    type: object
-    $schema: http://json-schema.org/schema#
-    properties:
-      description:
-        type:
-          - string
-          - "null"
-      scm:
-        type:
-          - string
-          - "null"
-      name:
-        type:
-          - string
-          - "null"
-      size:
-        type:
-          - number
-          - "null"
-      slug:
-        type:
-          - string
-          - "null"
-      uuid:
-        type:
-          - string
-          - "null"
-      links:
-        type:
-          - object
-          - "null"
-        properties:
-          html:
-            type:
-              - object
-              - "null"
-            properties:
-              href:
-                type:
-                  - string
-                  - "null"
-          self:
-            type:
-              - object
-              - "null"
-            properties:
-              href:
-                type:
-                  - string
-                  - "null"
-          tags:
+          branches:
             type:
               - object
               - "null"
@@ -465,6 +318,24 @@ schemas:
                   type:
                     - string
                     - "null"
+          commits:
+            type:
+              - object
+              - "null"
+            properties:
+              href:
+                type:
+                  - string
+                  - "null"
+          downloads:
+            type:
+              - object
+              - "null"
+            properties:
+              href:
+                type:
+                  - string
+                  - "null"
           forks:
             type:
               - object
@@ -483,52 +354,7 @@ schemas:
                 type:
                   - string
                   - "null"
-          avatar:
-            type:
-              - object
-              - "null"
-            properties:
-              href:
-                type:
-                  - string
-                  - "null"
-          source:
-            type:
-              - object
-              - "null"
-            properties:
-              href:
-                type:
-                  - string
-                  - "null"
-          commits:
-            type:
-              - object
-              - "null"
-            properties:
-              href:
-                type:
-                  - string
-                  - "null"
-          branches:
-            type:
-              - object
-              - "null"
-            properties:
-              href:
-                type:
-                  - string
-                  - "null"
-          watchers:
-            type:
-              - object
-              - "null"
-            properties:
-              href:
-                type:
-                  - string
-                  - "null"
-          downloads:
+          html:
             type:
               - object
               - "null"
@@ -546,234 +372,42 @@ schemas:
                 type:
                   - string
                   - "null"
-      owner:
-        type:
-          - object
-          - "null"
-        properties:
-          type:
-            type:
-              - string
-              - "null"
-          uuid:
-            type:
-              - string
-              - "null"
-          links:
+          self:
             type:
               - object
               - "null"
             properties:
-              html:
+              href:
                 type:
-                  - object
+                  - string
                   - "null"
-                properties:
-                  href:
-                    type:
-                      - string
-                      - "null"
-              self:
-                type:
-                  - object
-                  - "null"
-                properties:
-                  href:
-                    type:
-                      - string
-                      - "null"
-              avatar:
-                type:
-                  - object
-                  - "null"
-                properties:
-                  href:
-                    type:
-                      - string
-                      - "null"
-          username:
-            type:
-              - string
-              - "null"
-          display_name:
-            type:
-              - string
-              - "null"
-      parent:
-        type:
-          - object
-          - "null"
-        properties:
-          type:
-            type:
-              - string
-              - "null"
-          name:
-            type:
-              - string
-              - "null"
-          uuid:
-            type:
-              - string
-              - "null"
-          links:
+          source:
             type:
               - object
               - "null"
             properties:
-              html:
+              href:
                 type:
-                  - object
+                  - string
                   - "null"
-                properties:
-                  href:
-                    type:
-                      - string
-                      - "null"
-              self:
-                type:
-                  - object
-                  - "null"
-                properties:
-                  href:
-                    type:
-                      - string
-                      - "null"
-              avatar:
-                type:
-                  - object
-                  - "null"
-                properties:
-                  href:
-                    type:
-                      - string
-                      - "null"
-          full_name:
-            type:
-              - string
-              - "null"
-      project:
-        type:
-          - object
-          - "null"
-        properties:
-          type:
-            type:
-              - string
-              - "null"
-          key:
-            type:
-              - string
-              - "null"
-          name:
-            type:
-              - string
-              - "null"
-          uuid:
-            type:
-              - string
-              - "null"
-          links:
+          tags:
             type:
               - object
               - "null"
             properties:
-              html:
+              href:
                 type:
-                  - object
+                  - string
                   - "null"
-                properties:
-                  href:
-                    type:
-                      - string
-                      - "null"
-              self:
-                type:
-                  - object
-                  - "null"
-                properties:
-                  href:
-                    type:
-                      - string
-                      - "null"
-              avatar:
-                type:
-                  - object
-                  - "null"
-                properties:
-                  href:
-                    type:
-                      - string
-                      - "null"
-      language:
-        type:
-          - string
-          - "null"
-      full_name:
-        type:
-          - string
-          - "null"
-      workspace:
-        type:
-          - object
-          - "null"
-        properties:
-          type:
-            type:
-              - string
-              - "null"
-          name:
-            type:
-              - string
-              - "null"
-          slug:
-            type:
-              - string
-              - "null"
-          uuid:
-            type:
-              - string
-              - "null"
-          links:
+          watchers:
             type:
               - object
               - "null"
             properties:
-              html:
+              href:
                 type:
-                  - object
+                  - string
                   - "null"
-                properties:
-                  href:
-                    type:
-                      - string
-                      - "null"
-              self:
-                type:
-                  - object
-                  - "null"
-                properties:
-                  href:
-                    type:
-                      - string
-                      - "null"
-              avatar:
-                type:
-                  - object
-                  - "null"
-                properties:
-                  href:
-                    type:
-                      - string
-                      - "null"
-      created_on:
-        type:
-          - string
-          - "null"
-      is_private:
-        type:
-          - boolean
-          - "null"
       mainbranch:
         type:
           - object
@@ -787,11 +421,7 @@ schemas:
             type:
               - string
               - "null"
-      updated_on:
-        type:
-          - string
-          - "null"
-      fork_policy:
+      name:
         type:
           - string
           - "null"
@@ -808,12 +438,7 @@ schemas:
             type:
               - boolean
               - "null"
-    additionalProperties: true
-  workspace_membership:
-    type: object
-    $schema: http://json-schema.org/schema#
-    properties:
-      user:
+      owner:
         type:
           - object
           - "null"
@@ -822,7 +447,7 @@ schemas:
             type:
               - string
               - "null"
-          uuid:
+          display_name:
             type:
               - string
               - "null"
@@ -831,6 +456,15 @@ schemas:
               - object
               - "null"
             properties:
+              avatar:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  href:
+                    type:
+                      - string
+                      - "null"
               html:
                 type:
                   - object
@@ -849,6 +483,32 @@ schemas:
                     type:
                       - string
                       - "null"
+          username:
+            type:
+              - string
+              - "null"
+          uuid:
+            type:
+              - string
+              - "null"
+      parent:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          full_name:
+            type:
+              - string
+              - "null"
+          links:
+            type:
+              - object
+              - "null"
+            properties:
               avatar:
                 type:
                   - object
@@ -858,18 +518,163 @@ schemas:
                     type:
                       - string
                       - "null"
-          nickname:
+              html:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  href:
+                    type:
+                      - string
+                      - "null"
+              self:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  href:
+                    type:
+                      - string
+                      - "null"
+          name:
             type:
               - string
               - "null"
-          account_id:
+          uuid:
             type:
               - string
               - "null"
-          display_name:
+      project:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
             type:
               - string
               - "null"
+          key:
+            type:
+              - string
+              - "null"
+          links:
+            type:
+              - object
+              - "null"
+            properties:
+              avatar:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  href:
+                    type:
+                      - string
+                      - "null"
+              html:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  href:
+                    type:
+                      - string
+                      - "null"
+              self:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  href:
+                    type:
+                      - string
+                      - "null"
+          name:
+            type:
+              - string
+              - "null"
+          uuid:
+            type:
+              - string
+              - "null"
+      scm:
+        type:
+          - string
+          - "null"
+      size:
+        type:
+          - number
+          - "null"
+      slug:
+        type:
+          - string
+          - "null"
+      updated_on:
+        type:
+          - string
+          - "null"
+      uuid:
+        type:
+          - string
+          - "null"
+      workspace:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          links:
+            type:
+              - object
+              - "null"
+            properties:
+              avatar:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  href:
+                    type:
+                      - string
+                      - "null"
+              html:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  href:
+                    type:
+                      - string
+                      - "null"
+              self:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  href:
+                    type:
+                      - string
+                      - "null"
+          name:
+            type:
+              - string
+              - "null"
+          slug:
+            type:
+              - string
+              - "null"
+          uuid:
+            type:
+              - string
+              - "null"
+  workspace_membership:
+    type: object
+    $schema: http://json-schema.org/schema#
+    additionalProperties: true
+    properties:
       links:
         type:
           - object
@@ -884,68 +689,10 @@ schemas:
                 type:
                   - string
                   - "null"
-      workspace:
-        type:
-          - object
-          - "null"
-        properties:
-          type:
-            type:
-              - string
-              - "null"
-          name:
-            type:
-              - string
-              - "null"
-          slug:
-            type:
-              - string
-              - "null"
-          uuid:
-            type:
-              - string
-              - "null"
-          links:
-            type:
-              - object
-              - "null"
-            properties:
-              html:
-                type:
-                  - object
-                  - "null"
-                properties:
-                  href:
-                    type:
-                      - string
-                      - "null"
-              self:
-                type:
-                  - object
-                  - "null"
-                properties:
-                  href:
-                    type:
-                      - string
-                      - "null"
-              avatar:
-                type:
-                  - object
-                  - "null"
-                properties:
-                  href:
-                    type:
-                      - string
-                      - "null"
       permission:
         type:
           - string
           - "null"
-    additionalProperties: true
-  repository_permission:
-    type: object
-    $schema: http://json-schema.org/schema#
-    properties:
       user:
         type:
           - object
@@ -955,7 +702,11 @@ schemas:
             type:
               - string
               - "null"
-          uuid:
+          account_id:
+            type:
+              - string
+              - "null"
+          display_name:
             type:
               - string
               - "null"
@@ -964,6 +715,15 @@ schemas:
               - object
               - "null"
             properties:
+              avatar:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  href:
+                    type:
+                      - string
+                      - "null"
               html:
                 type:
                   - object
@@ -974,15 +734,6 @@ schemas:
                       - string
                       - "null"
               self:
-                type:
-                  - object
-                  - "null"
-                properties:
-                  href:
-                    type:
-                      - string
-                      - "null"
-              avatar:
                 type:
                   - object
                   - "null"
@@ -995,14 +746,68 @@ schemas:
             type:
               - string
               - "null"
-          account_id:
+          uuid:
             type:
               - string
               - "null"
-          display_name:
+      workspace:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
             type:
               - string
               - "null"
+          links:
+            type:
+              - object
+              - "null"
+            properties:
+              avatar:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  href:
+                    type:
+                      - string
+                      - "null"
+              html:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  href:
+                    type:
+                      - string
+                      - "null"
+              self:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  href:
+                    type:
+                      - string
+                      - "null"
+          name:
+            type:
+              - string
+              - "null"
+          slug:
+            type:
+              - string
+              - "null"
+          uuid:
+            type:
+              - string
+              - "null"
+  repository_permission:
+    type: object
+    $schema: http://json-schema.org/schema#
+    additionalProperties: true
+    properties:
       permission:
         type:
           - string
@@ -1016,11 +821,7 @@ schemas:
             type:
               - string
               - "null"
-          name:
-            type:
-              - string
-              - "null"
-          uuid:
+          full_name:
             type:
               - string
               - "null"
@@ -1029,6 +830,15 @@ schemas:
               - object
               - "null"
             properties:
+              avatar:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  href:
+                    type:
+                      - string
+                      - "null"
               html:
                 type:
                   - object
@@ -1047,6 +857,36 @@ schemas:
                     type:
                       - string
                       - "null"
+          name:
+            type:
+              - string
+              - "null"
+          uuid:
+            type:
+              - string
+              - "null"
+      user:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          account_id:
+            type:
+              - string
+              - "null"
+          display_name:
+            type:
+              - string
+              - "null"
+          links:
+            type:
+              - object
+              - "null"
+            properties:
               avatar:
                 type:
                   - object
@@ -1056,8 +896,214 @@ schemas:
                     type:
                       - string
                       - "null"
-          full_name:
+              html:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  href:
+                    type:
+                      - string
+                      - "null"
+              self:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  href:
+                    type:
+                      - string
+                      - "null"
+          nickname:
             type:
               - string
               - "null"
+          uuid:
+            type:
+              - string
+              - "null"
+  projects:
+    type: object
+    $schema: http://json-schema.org/schema#
     additionalProperties: true
+    properties:
+      created_on:
+        type:
+          - string
+          - "null"
+      has_publicly_visible_repos:
+        type:
+          - boolean
+          - "null"
+      is_private:
+        type:
+          - boolean
+          - "null"
+      key:
+        type:
+          - string
+          - "null"
+      links:
+        type:
+          - object
+          - "null"
+        properties:
+          avatar:
+            type:
+              - object
+              - "null"
+            properties:
+              href:
+                type:
+                  - string
+                  - "null"
+          html:
+            type:
+              - object
+              - "null"
+            properties:
+              href:
+                type:
+                  - string
+                  - "null"
+          repositories:
+            type:
+              - object
+              - "null"
+            properties:
+              href:
+                type:
+                  - string
+                  - "null"
+          self:
+            type:
+              - object
+              - "null"
+            properties:
+              href:
+                type:
+                  - string
+                  - "null"
+      name:
+        type:
+          - string
+          - "null"
+      owner:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          display_name:
+            type:
+              - string
+              - "null"
+          links:
+            type:
+              - object
+              - "null"
+            properties:
+              avatar:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  href:
+                    type:
+                      - string
+                      - "null"
+              html:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  href:
+                    type:
+                      - string
+                      - "null"
+              self:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  href:
+                    type:
+                      - string
+                      - "null"
+          username:
+            type:
+              - string
+              - "null"
+          uuid:
+            type:
+              - string
+              - "null"
+      updated_on:
+        type:
+          - string
+          - "null"
+      uuid:
+        type:
+          - string
+          - "null"
+      workspace:
+        type:
+          - object
+          - "null"
+        properties:
+          type:
+            type:
+              - string
+              - "null"
+          links:
+            type:
+              - object
+              - "null"
+            properties:
+              avatar:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  href:
+                    type:
+                      - string
+                      - "null"
+              html:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  href:
+                    type:
+                      - string
+                      - "null"
+              self:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  href:
+                    type:
+                      - string
+                      - "null"
+          name:
+            type:
+              - string
+              - "null"
+          slug:
+            type:
+              - string
+              - "null"
+          uuid:
+            type:
+              - string
+              - "null"
+  webhooks:
+    type: object
+    $schema: http://json-schema.org/draft-07/schema#
+    additionalProperties: true
+    properties: {}
