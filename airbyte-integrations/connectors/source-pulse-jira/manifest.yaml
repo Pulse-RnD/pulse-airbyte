@@ -46,9 +46,9 @@ definitions:
         type: InlineSchemaLoader
         schema:
           $ref: "#/schemas/users"
-    applicationrole:
+    application_role:
       type: DeclarativeStream
-      name: applicationrole
+      name: application_role
       retriever:
         type: SimpleRetriever
         requester:
@@ -63,7 +63,7 @@ definitions:
       schema_loader:
         type: InlineSchemaLoader
         schema:
-          $ref: "#/schemas/applicationrole"
+          $ref: "#/schemas/application_role"
     roles:
       type: DeclarativeStream
       name: roles
@@ -106,13 +106,13 @@ definitions:
     url_base: https://{{config['domain']}}/rest/api/3
     authenticator:
       type: BasicHttpAuthenticator
-      username: "{{ config[\"username\"] }}"
       password: "{{ config[\"password\"] }}"
+      username: "{{ config[\"username\"] }}"
 
 streams:
   - $ref: "#/definitions/streams/groups"
   - $ref: "#/definitions/streams/users"
-  - $ref: "#/definitions/streams/applicationrole"
+  - $ref: "#/definitions/streams/application_role"
   - $ref: "#/definitions/streams/roles"
   - $ref: "#/definitions/streams/permissions"
 
@@ -127,63 +127,63 @@ spec:
     properties:
       domain:
         type: string
-        title: Domain
         order: 0
+        title: Domain
       username:
         type: string
-        title: Username
         order: 1
+        title: Username
       password:
         type: string
+        order: 2
         title: Password
         always_show: true
         airbyte_secret: true
-        order: 2
     additionalProperties: true
 
 metadata:
   autoImportSchema:
     groups: true
     users: true
-    applicationrole: true
+    application_role: true
     roles: true
     permissions: true
   testedStreams:
     groups:
+      hasRecords: true
       streamHash: 56d4bf719959fbf6be94ee53e5e2b22a80b306b3
       hasResponse: true
-      responsesAreSuccessful: true
-      hasRecords: true
-      primaryKeysArePresent: true
       primaryKeysAreUnique: true
+      primaryKeysArePresent: true
+      responsesAreSuccessful: true
     users:
+      hasRecords: true
       streamHash: 3a428a672fc922427f325ef5cb7ff60ca7f39699
       hasResponse: true
-      responsesAreSuccessful: true
-      hasRecords: true
-      primaryKeysArePresent: true
       primaryKeysAreUnique: true
-    applicationrole:
-      streamHash: 735ecf906a42c0a1bb86c149cdc6c2496a5f16cf
+      primaryKeysArePresent: true
+      responsesAreSuccessful: true
+    application_role:
+      streamHash: d68fa6e59c7d9f1f802e87cdfcef1f0772eb461d
       hasResponse: true
       responsesAreSuccessful: true
       hasRecords: true
       primaryKeysArePresent: true
       primaryKeysAreUnique: true
     roles:
+      hasRecords: true
       streamHash: 890f2f9b6b23319cebb41ad24b1256c5bf081b70
       hasResponse: true
-      responsesAreSuccessful: true
-      hasRecords: true
-      primaryKeysArePresent: true
       primaryKeysAreUnique: true
+      primaryKeysArePresent: true
+      responsesAreSuccessful: true
     permissions:
+      hasRecords: true
       streamHash: fb9bf2df967ca63e5d6a0e8f6f9fe4f75457a871
       hasResponse: true
-      responsesAreSuccessful: true
-      hasRecords: true
-      primaryKeysArePresent: true
       primaryKeysAreUnique: true
+      primaryKeysArePresent: true
+      responsesAreSuccessful: true
   assist: {}
 
 schemas:
@@ -279,7 +279,7 @@ schemas:
         type:
           - string
           - "null"
-  applicationrole:
+  application_role:
     type: object
     $schema: http://json-schema.org/schema#
     additionalProperties: true
