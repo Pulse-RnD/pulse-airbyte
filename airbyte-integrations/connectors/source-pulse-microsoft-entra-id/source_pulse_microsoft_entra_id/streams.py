@@ -429,3 +429,19 @@ class UserMembershipInGroupsAndDirectory(ParentChildStream, TransformationMixin)
         if stream_slice and "parent_id" in stream_slice:
             record["userId"] = stream_slice["parent_id"]
         return record
+
+
+class UserAuthMethods(ParentChildStream, TransformationMixin):
+    parent_stream_class = Users
+    parent_id_field = "id"
+
+    def path(self, stream_slice: Optional[Mapping[str, Any]] = None, **kwargs) -> str:
+        if not stream_slice or "parent_id" not in stream_slice:
+            return f"users/{self.none_existing_id}/authentication/methods"
+        parent_id = stream_slice["parent_id"]
+        return f"users/{parent_id}/authentication/methods"
+
+    def transform_record(self, record: MutableMapping[str, Any], stream_slice: Optional[Mapping[str, Any]] = None) -> Mapping[str, Any]:
+        if stream_slice and "parent_id" in stream_slice:
+            record["userId"] = stream_slice["parent_id"]
+        return record
