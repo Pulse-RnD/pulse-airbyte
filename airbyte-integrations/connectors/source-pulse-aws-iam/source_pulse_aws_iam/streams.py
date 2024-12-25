@@ -185,6 +185,23 @@ class CloudTrailEventsStream(BaseIamStream):
     name = "cloudtrail_events"
     max_items_per_page = 50
 
+    AUTH_EVENT_NAMES = {
+        "AssumeRole",
+        "AssumeRoleWithSAML",
+        "ConsoleLogin",
+        "CreateSession",
+        "SwitchRole",
+        "ExitRole",
+        "GetSSOStatus",
+        "StartSSO",
+        "AssumeRoot",
+        "CreateLoginProfile",
+        "GetLoginProfile",
+        "GetCallerIdentity",
+        "CredentialChallenge",
+        "CredentialVerification"
+    }
+
     @property
     def cursor_field(self) -> str:
         return "EventTime"
@@ -222,6 +239,10 @@ class CloudTrailEventsStream(BaseIamStream):
         logger.info(f"CloudTrail lookup attributes - StartTime: {attrs.get('StartTime')}")
         return attrs
 
+    def is_auth_event(self, event: Dict[str, Any]) -> bool:
+        event_name = event.get('EventName')
+        return event_name in self.AUTH_EVENT_NAMES
+
     def read_records(self, sync_mode: str, cursor_field: List[str] = None,
                      stream_slice: Mapping[str, Any] = None,
                      stream_state: Mapping[str, Any] = None) -> Iterable[Mapping[str, Any]]:
@@ -232,7 +253,8 @@ class CloudTrailEventsStream(BaseIamStream):
 
             for page in paginator.paginate(**lookup_attrs):
                 for event in page.get('Events', []):
-                    yield event
+                    if self.is_auth_event(event):
+                        yield event
         except Exception as e:
             logger.error(f"Error fetching CloudTrail events: {str(e)}", exc_info=True)
             yield from []
