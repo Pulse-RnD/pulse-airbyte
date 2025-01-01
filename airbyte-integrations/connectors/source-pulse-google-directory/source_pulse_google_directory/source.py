@@ -2,21 +2,14 @@
 # Copyright (c) 2024 Airbyte, Inc., all rights reserved.
 #
 import json
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Any, Iterable, List, Mapping, MutableMapping, Optional, Tuple
 
 import requests
-from airbyte_cdk.sources.streams import IncrementalMixin
 from airbyte_cdk.sources import AbstractSource
 from airbyte_cdk.sources.streams import Stream
 from airbyte_cdk.sources.streams.http import HttpStream
 from airbyte_cdk.models.airbyte_protocol import (
-    Type,
-    AirbyteMessage,
-    AirbyteStateMessage,
-    AirbyteStateType,
-    StreamDescriptor,
-    AirbyteStreamState,
     SyncMode,
 )
 from googleapiclient.discovery import build
@@ -203,7 +196,7 @@ class RoleAssignments(GooglePulseDirectoryStream):
     Stream for Google Workspace RoleAssignments
     """
 
-    name = "roleAssignments"
+    name = "role_assignments"
     primary_key = "roleAssignmentId"
 
     def path(self, **kwargs) -> str:
@@ -394,4 +387,5 @@ class SourcePulseGoogleDirectory(AbstractSource):
             RoleAssignments(credentials=credentials),
             Tokens(credentials=credentials, parent=users_stream),
             Asps(credentials=credentials, parent=users_stream),
+            users_stream,
         ]
