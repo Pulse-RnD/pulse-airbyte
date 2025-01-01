@@ -16,7 +16,8 @@ from googleapiclient.discovery import build
 from google.oauth2 import service_account
 
 
-# TODO: Add my_customer constant to the base class
+# Google Directory API docs https://developers.google.com/admin-sdk/directory/reference/rest
+# Google API Client Python docs https://google-api-client-libraries.appspot.com/documentation/admin/directory_v1/python/latest/index.html
 
 
 class GooglePulseDirectoryStream(HttpStream, ABC):
