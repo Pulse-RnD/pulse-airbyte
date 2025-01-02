@@ -5,9 +5,11 @@ import json
 from abc import ABC
 from typing import Any, Iterable, List, Mapping, MutableMapping, Optional, Tuple
 
+
+from datetime import datetime, timezone, timedelta
 import requests
 from airbyte_cdk.sources import AbstractSource
-from airbyte_cdk.sources.streams import Stream
+from airbyte_cdk.sources.streams import IncrementalMixin, Stream
 from airbyte_cdk.sources.streams.http import HttpStream
 from airbyte_cdk.models.airbyte_protocol import (
     SyncMode,
@@ -52,6 +54,7 @@ class GooglePulseDirectoryStream(HttpStream, ABC):
     def __init__(self, credentials: service_account.Credentials):
         super().__init__()
         self.service = build("admin", "directory_v1", credentials=credentials)
+        self.report = build("admin", "reports_v1", credentials=credentials)
 
     def next_page_token(self, response: requests.Response) -> Optional[Mapping[str, Any]]:
         """
@@ -312,6 +315,140 @@ class Asps(GooglePulseDirectoryStream):
                 break
 
 
+class LoginActivityReport(GooglePulseDirectoryStream, IncrementalMixin):
+    """
+    Stream for Google Workspace Login Activity Report
+    """
+
+    name = "login_activity_report"
+    primary_key = None
+    state_checkpoint_interval = None  # Disable interval checkpointing as data isn't ordered
+
+    @property
+    def cursor_field(self) -> str:
+        return "id/time"
+
+    @property
+    def state(self) -> MutableMapping[str, Any]:
+        if self._cursor_value:
+            return {self.cursor_field: self._cursor_value}
+        return {}
+
+    @state.setter
+    def state(self, value: MutableMapping[str, Any]):
+        self._cursor_value = value.get(self.cursor_field)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._cursor_value = None
+
+    def path(self, stream_slice: Mapping[str, Any] = None, **kwargs) -> str:
+        return f"/reports/v1/activity/users/all"  # Required by HttpStream but not actually used
+
+    def stream_slices(
+        self, sync_mode, cursor_field: List[str] = None, stream_state: Mapping[str, Any] = None
+    ) -> Iterable[Optional[Mapping[str, Any]]]:
+        """
+        Break up the stream into daily slices to support reliable checkpointing.
+        Each slice represents one day of data.
+        """
+
+        start_date = self.state.get(self.cursor_field, None) or (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+
+        start = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+        end = datetime.now(timezone.utc)
+
+        # Create daily slices
+        current = start
+        while current < end:
+            next_date = min(current + timedelta(days=1), end)
+            yield {"start_time": current.isoformat(), "end_time": next_date.isoformat()}
+            current = next_date
+
+    def read_records(
+        self,
+        sync_mode: str,
+        cursor_field: List[str] = None,
+        stream_slice: Mapping[str, Any] = None,
+        stream_state: Mapping[str, Any] = None,
+    ) -> Iterable[Mapping[str, Any]]:
+        if not stream_slice:
+            return
+
+        page_token = None
+
+        while True:
+            activities_response = (
+                self.report.activities()
+                .list(
+                    pageToken=page_token,
+                    userKey="all",
+                    applicationName="login",
+                    maxResults=10,
+                    startTime=stream_slice["start_time"],
+                    endTime=stream_slice["end_time"],
+                )
+                .execute()
+            )
+
+            for activity in activities_response.get("items", []):
+                # Extract timestamp for cursor tracking
+                activity_time = activity.get("id", {}).get("time")
+                if activity_time:
+                    # Update cursor to the latest timestamp seen.
+                    if not self.state.get(self.cursor_field, None) or activity_time > self.state.get(self.cursor_field):
+                        self.state = {self.cursor_field: activity_time}
+                yield activity
+
+            page_token = activities_response.get("nextPageToken")
+            if not page_token:
+                break
+
+
+class Asps(GooglePulseDirectoryStream):
+    """
+    Stream for Google Workspace Application-Specific Password
+    """
+
+    name = "asps"
+    primary_key = "userKey"
+
+    def __init__(self, parent: Users, **kwargs):
+        super().__init__(**kwargs)
+        self.parent = parent
+
+    def stream_slices(
+        self, *, sync_mode: SyncMode, cursor_field: Optional[List[str]] = None, stream_state: Optional[Mapping[str, Any]] = None
+    ) -> Iterable[Optional[Mapping[str, Any]]]:
+        for user in self.parent.read_records(sync_mode=SyncMode.full_refresh):
+            yield {"user_id": user["id"]}
+
+    def path(self, stream_slice: Mapping[str, Any] = None, **kwargs) -> str:
+        user_id = stream_slice["user_id"]
+        return f"users/{user_id}/asps"  # Required by HttpStream but not actually used
+
+    def read_records(
+        self,
+        sync_mode: str,
+        cursor_field: List[str] = None,
+        stream_slice: Mapping[str, Any] = None,
+        stream_state: Mapping[str, Any] = None,
+    ) -> Iterable[Mapping[str, Any]]:
+        page_token = None
+        user_id = stream_slice["user_id"]
+
+        while True:
+            asps_request = self.service.asps().list(userKey=user_id)
+            asps_response = asps_request.execute()
+
+            for group in asps_response.get("items", []):
+                yield group
+
+            page_token = asps_response.get("nextPageToken")
+            if not page_token:
+                break
+
+
 class SourcePulseGoogleDirectory(AbstractSource):
     """
     Google Directory API Source
@@ -335,6 +472,7 @@ class SourcePulseGoogleDirectory(AbstractSource):
                     "https://www.googleapis.com/auth/admin.directory.group.readonly",
                     "https://www.googleapis.com/auth/admin.directory.user.security",
                     "https://www.googleapis.com/auth/admin.directory.rolemanagement.readonly",
+                    "https://www.googleapis.com/auth/admin.reports.audit.readonly",
                 ],
             )
             creds = creds.with_subject(admin_email)
@@ -388,5 +526,6 @@ class SourcePulseGoogleDirectory(AbstractSource):
             RoleAssignments(credentials=credentials),
             Tokens(credentials=credentials, parent=users_stream),
             Asps(credentials=credentials, parent=users_stream),
+            LoginActivityReport(credentials=credentials),
             users_stream,
         ]
