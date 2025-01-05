@@ -376,6 +376,7 @@ class LoginActivityReport(GooglePulseDirectoryStream, IncrementalMixin):
             return
 
         page_token = None
+        last_time_seen = stream_slice["start_time"]
 
         while True:
             activities_response = (
@@ -384,7 +385,7 @@ class LoginActivityReport(GooglePulseDirectoryStream, IncrementalMixin):
                     pageToken=page_token,
                     userKey="all",
                     applicationName="login",
-                    maxResults=10,
+                    maxResults=100,
                     startTime=stream_slice["start_time"],
                     endTime=stream_slice["end_time"],
                 )
@@ -395,13 +396,15 @@ class LoginActivityReport(GooglePulseDirectoryStream, IncrementalMixin):
                 # Extract timestamp for cursor tracking
                 activity_time = activity.get("id", {}).get("time")
                 if activity_time:
-                    # Update cursor to the latest timestamp seen.
-                    if not self.state.get(self.cursor_field, None) or activity_time > self.state.get(self.cursor_field):
-                        self.state = {self.cursor_field: activity_time}
+                    if last_time_seen < activity_time:
+                        last_time_seen = activity_time
                 yield activity
 
             page_token = activities_response.get("nextPageToken")
             if not page_token:
+                # Update cursor to the latest timestamp seen.
+                if not self.state.get(self.cursor_field, None) or last_time_seen > self.state.get(self.cursor_field):
+                    self.state = {self.cursor_field: last_time_seen}
                 break
 
 
