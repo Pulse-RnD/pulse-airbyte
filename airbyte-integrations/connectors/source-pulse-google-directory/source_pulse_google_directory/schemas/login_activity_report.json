@@ -41,8 +41,7 @@
       "properties": {
         "email": {
           "type": "string",
-          "description": "The primary email address of the actor",
-          "format": "email"
+          "description": "The primary email address of the actor"
         },
         "profileId": {
           "type": "string",
@@ -53,8 +52,7 @@
     },
     "ipAddress": {
       "type": "string",
-      "description": "IP address of the user doing the action",
-      "format": "ipv4"
+      "description": "IP address of the user doing the action"
     },
     "events": {
       "type": "array",

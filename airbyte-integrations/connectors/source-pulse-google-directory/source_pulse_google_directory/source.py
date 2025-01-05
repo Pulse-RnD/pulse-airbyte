@@ -3,7 +3,7 @@
 #
 import json
 from abc import ABC
-from typing import Any, Iterable, List, Mapping, MutableMapping, Optional, Tuple
+from typing import Any, Iterable, List, Mapping, MutableMapping, Optional, Tuple, Union
 
 
 from datetime import datetime, timezone, timedelta
@@ -321,8 +321,11 @@ class LoginActivityReport(GooglePulseDirectoryStream, IncrementalMixin):
     """
 
     name = "login_activity_report"
-    primary_key = None
     state_checkpoint_interval = None  # Disable interval checkpointing as data isn't ordered
+
+    @property
+    def primary_key(self) -> Optional[Union[str, List[str], List[List[str]]]]:
+        return [["id", "uniqueQualifier"]]  # This tells Airbyte to look for uniqueQualifier inside the id object
 
     @property
     def cursor_field(self) -> str:
