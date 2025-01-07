@@ -233,7 +233,7 @@ class Tokens(GooglePulseDirectoryStream):
     """
 
     name = "tokens"
-    primary_key = "userKey"
+    primary_key = "unique_id"
 
     def __init__(self, parent: Users, **kwargs):
         super().__init__(**kwargs)
@@ -263,8 +263,9 @@ class Tokens(GooglePulseDirectoryStream):
             tokes_request = self.service.tokens().list(userKey=user_id)
             tokens_response = tokes_request.execute()
 
-            for group in tokens_response.get("items", []):
-                yield group
+            for item in tokens_response.get("items", []):
+                item["unique_id"] = f"{item['userKey']}_{item['clientId']}"
+                yield item
 
             page_token = tokens_response.get("nextPageToken")
             if not page_token:
@@ -277,7 +278,7 @@ class Asps(GooglePulseDirectoryStream):
     """
 
     name = "asps"
-    primary_key = "userKey"
+    primary_key = "codeId"
 
     def __init__(self, parent: Users, **kwargs):
         super().__init__(**kwargs)
@@ -307,8 +308,8 @@ class Asps(GooglePulseDirectoryStream):
             asps_request = self.service.asps().list(userKey=user_id)
             asps_response = asps_request.execute()
 
-            for group in asps_response.get("items", []):
-                yield group
+            for item in asps_response.get("items", []):
+                yield item
 
             page_token = asps_response.get("nextPageToken")
             if not page_token:
