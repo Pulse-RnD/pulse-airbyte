@@ -330,7 +330,7 @@ class LoginActivityReport(GooglePulseDirectoryStream, IncrementalMixin):
 
     @property
     def cursor_field(self) -> str:
-        return "id/time"
+        return "activity_time"
 
     @property
     def state(self) -> MutableMapping[str, Any]:
@@ -400,8 +400,11 @@ class LoginActivityReport(GooglePulseDirectoryStream, IncrementalMixin):
                 # some destinations can only work with top level primary key
                 unique_id = "_".join(str(value) for value in activity["id"].values())
                 activity["unique_id"] = unique_id
+
                 # Extract timestamp for cursor tracking
                 activity_time = activity.get("id", {}).get("time")
+                activity["activity_time"] = activity_time
+
                 if activity_time:
                     if last_time_seen < activity_time:
                         last_time_seen = activity_time
@@ -429,7 +432,7 @@ class AdminActivityReport(GooglePulseDirectoryStream, IncrementalMixin):
 
     @property
     def cursor_field(self) -> str:
-        return "id/time"
+        return "activity_time"
 
     @property
     def state(self) -> MutableMapping[str, Any]:
@@ -502,6 +505,8 @@ class AdminActivityReport(GooglePulseDirectoryStream, IncrementalMixin):
 
                 # Extract timestamp for cursor tracking
                 activity_time = activity.get("id", {}).get("time")
+                activity["activity_time"] = activity_time
+
                 if activity_time:
                     if last_time_seen < activity_time:
                         last_time_seen = activity_time
@@ -529,7 +534,7 @@ class TokenActivityReport(GooglePulseDirectoryStream, IncrementalMixin):
 
     @property
     def cursor_field(self) -> str:
-        return "id/time"
+        return "activity_time"
 
     @property
     def state(self) -> MutableMapping[str, Any]:
@@ -602,6 +607,8 @@ class TokenActivityReport(GooglePulseDirectoryStream, IncrementalMixin):
 
                 # Extract timestamp for cursor tracking
                 activity_time = activity.get("id", {}).get("time")
+                activity["activity_time"] = activity_time
+
                 if activity_time:
                     if last_time_seen < activity_time:
                         last_time_seen = activity_time
