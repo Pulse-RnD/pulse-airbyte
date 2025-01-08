@@ -233,7 +233,7 @@ class Tokens(GooglePulseDirectoryStream):
     """
 
     name = "tokens"
-    primary_key = "userKey"
+    primary_key = "unique_id"
 
     def __init__(self, parent: Users, **kwargs):
         super().__init__(**kwargs)
@@ -263,8 +263,9 @@ class Tokens(GooglePulseDirectoryStream):
             tokes_request = self.service.tokens().list(userKey=user_id)
             tokens_response = tokes_request.execute()
 
-            for group in tokens_response.get("items", []):
-                yield group
+            for item in tokens_response.get("items", []):
+                item["unique_id"] = f"{item['userKey']}_{item['clientId']}"
+                yield item
 
             page_token = tokens_response.get("nextPageToken")
             if not page_token:
@@ -277,7 +278,7 @@ class Asps(GooglePulseDirectoryStream):
     """
 
     name = "asps"
-    primary_key = "userKey"
+    primary_key = "codeId"
 
     def __init__(self, parent: Users, **kwargs):
         super().__init__(**kwargs)
@@ -307,8 +308,8 @@ class Asps(GooglePulseDirectoryStream):
             asps_request = self.service.asps().list(userKey=user_id)
             asps_response = asps_request.execute()
 
-            for group in asps_response.get("items", []):
-                yield group
+            for item in asps_response.get("items", []):
+                yield item
 
             page_token = asps_response.get("nextPageToken")
             if not page_token:
@@ -325,11 +326,11 @@ class LoginActivityReport(GooglePulseDirectoryStream, IncrementalMixin):
 
     @property
     def primary_key(self) -> Optional[Union[str, List[str], List[List[str]]]]:
-        return [["id", "uniqueQualifier"]]  # This tells Airbyte to look for uniqueQualifier inside the id object
+        return "unique_id"
 
     @property
     def cursor_field(self) -> str:
-        return "id/time"
+        return "activity_time"
 
     @property
     def state(self) -> MutableMapping[str, Any]:
@@ -396,8 +397,14 @@ class LoginActivityReport(GooglePulseDirectoryStream, IncrementalMixin):
             )
 
             for activity in activities_response.get("items", []):
+                # some destinations can only work with top level primary key
+                unique_id = "_".join(str(value) for value in activity["id"].values())
+                activity["unique_id"] = unique_id
+
                 # Extract timestamp for cursor tracking
                 activity_time = activity.get("id", {}).get("time")
+                activity["activity_time"] = activity_time
+
                 if activity_time:
                     if last_time_seen < activity_time:
                         last_time_seen = activity_time
@@ -421,11 +428,11 @@ class AdminActivityReport(GooglePulseDirectoryStream, IncrementalMixin):
 
     @property
     def primary_key(self) -> Optional[Union[str, List[str], List[List[str]]]]:
-        return [["id", "uniqueQualifier"]]  # This tells Airbyte to look for uniqueQualifier inside the id object
+        return "unique_id"
 
     @property
     def cursor_field(self) -> str:
-        return "id/time"
+        return "activity_time"
 
     @property
     def state(self) -> MutableMapping[str, Any]:
@@ -492,8 +499,14 @@ class AdminActivityReport(GooglePulseDirectoryStream, IncrementalMixin):
             )
 
             for activity in activities_response.get("items", []):
+                # some destinations can only work with top level primary key
+                unique_id = "_".join(str(value) for value in activity["id"].values())
+                activity["unique_id"] = unique_id
+
                 # Extract timestamp for cursor tracking
                 activity_time = activity.get("id", {}).get("time")
+                activity["activity_time"] = activity_time
+
                 if activity_time:
                     if last_time_seen < activity_time:
                         last_time_seen = activity_time
@@ -517,11 +530,11 @@ class TokenActivityReport(GooglePulseDirectoryStream, IncrementalMixin):
 
     @property
     def primary_key(self) -> Optional[Union[str, List[str], List[List[str]]]]:
-        return [["id", "uniqueQualifier"]]  # This tells Airbyte to look for uniqueQualifier inside the id object
+        return "unique_id"
 
     @property
     def cursor_field(self) -> str:
-        return "id/time"
+        return "activity_time"
 
     @property
     def state(self) -> MutableMapping[str, Any]:
@@ -588,8 +601,14 @@ class TokenActivityReport(GooglePulseDirectoryStream, IncrementalMixin):
             )
 
             for activity in activities_response.get("items", []):
+                # some destinations can only work with top level primary key
+                unique_id = "_".join(str(value) for value in activity["id"].values())
+                activity["unique_id"] = unique_id
+
                 # Extract timestamp for cursor tracking
                 activity_time = activity.get("id", {}).get("time")
+                activity["activity_time"] = activity_time
+
                 if activity_time:
                     if last_time_seen < activity_time:
                         last_time_seen = activity_time
