@@ -17,6 +17,7 @@ packages = [ { include = "source_pulse_netskope" }, {include = "main.py" } ]
 [tool.poetry.dependencies]
 python = "^3.9,<3.12"
 airbyte-cdk = "^0"
+netskopesdk = "0.0.41"
 
 [tool.poetry.scripts]
 source-pulse-netskope = "source_pulse_netskope.run:run"
