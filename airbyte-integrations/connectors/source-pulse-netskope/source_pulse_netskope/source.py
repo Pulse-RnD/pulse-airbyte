@@ -1,206 +1,176 @@
-#
-# Copyright (c) 2025 Airbyte, Inc., all rights reserved.
-#
-
-
-from abc import ABC
-from typing import Any, Iterable, List, Mapping, MutableMapping, Optional, Tuple
-
-import requests
+from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, Tuple
+from datetime import datetime
+import time
+import re
+import logging
+from airbyte_cdk.sources.streams.core import IncrementalMixin, Stream
 from airbyte_cdk.sources import AbstractSource
-from airbyte_cdk.sources.streams import Stream
-from airbyte_cdk.sources.streams.http import HttpStream
-from airbyte_cdk.sources.streams.http.requests_native_auth import TokenAuthenticator
+from netskope_api.iterator.netskope_iterator import NetskopeIterator
+from netskope_api.iterator.const import Const
 
-"""
-TODO: Most comments in this class are instructive and should be deleted after the source is implemented.
+logger = logging.getLogger("airbyte")
 
-This file provides a stubbed example of how to use the Airbyte CDK to develop both a source connector which supports full refresh or and an
-incremental syncs from an HTTP API.
+class NetskopeDataExportStream(Stream, IncrementalMixin):
+    primary_key = None
+    cursor_field = "timestamp"
 
-The various TODOs are both implementation hints and steps - fulfilling all the TODOs should be sufficient to implement one basic and one incremental
-stream from a source. This pattern is the same one used by Airbyte internally to implement connectors.
+    def __init__(
+            self,
+            event_type: str,
+            start_timestamp: int,
+            tenant_url: str,
+            api_token: str,
+    ):
+        self.event_type = event_type
+        self._start_timestamp = start_timestamp
+        self.tenant_url = tenant_url
+        self.api_token = api_token
+        self.index_name = self._generate_consistent_index_name()
 
-The approach here is not authoritative, and devs are free to use their own judgement.
+        logger.info(f"Initialized {self.event_type} stream with index name: {self.index_name}")
 
-There are additional required TODOs in the files within the integration_tests folder and the spec.yaml file.
-"""
+    @staticmethod
+    def _sanitize_tenant_name(tenant_url: str) -> str:
+        tenant_name = tenant_url.split('.')[0].lower()
+        tenant_name = re.sub(r'[^a-z0-9]', '_', tenant_name)
+        tenant_name = re.sub(r'_+', '_', tenant_name)
+        tenant_name = tenant_name.strip('_')
+        return tenant_name
 
+    def _generate_consistent_index_name(self) -> str:
+        tenant_name = self._sanitize_tenant_name(self.tenant_url)
+        index_name = f"{tenant_name}_{self.event_type}_index"
+        logger.debug(f"Generated consistent index name '{index_name}' from tenant URL '{self.tenant_url}' and event type '{self.event_type}'")
+        return index_name
 
-# Basic full refresh stream
-class PulseNetskopeStream(HttpStream, ABC):
-    """
-    TODO remove this comment
-
-    This class represents a stream output by the connector.
-    This is an abstract base class meant to contain all the common functionality at the API level e.g: the API base URL, pagination strategy,
-    parsing responses etc..
-
-    Each stream should extend this class (or another abstract subclass of it) to specify behavior unique to that stream.
-
-    Typically for REST APIs each stream corresponds to a resource in the API. For example if the API
-    contains the endpoints
-        - GET v1/customers
-        - GET v1/employees
-
-    then you should have three classes:
-    `class PulseNetskopeStream(HttpStream, ABC)` which is the current class
-    `class Customers(PulseNetskopeStream)` contains behavior to pull data for customers using v1/customers
-    `class Employees(PulseNetskopeStream)` contains behavior to pull data for employees using v1/employees
-
-    If some streams implement incremental sync, it is typical to create another class
-    `class IncrementalPulseNetskopeStream((PulseNetskopeStream), ABC)` then have concrete stream implementations extend it. An example
-    is provided below.
-
-    See the reference docs for the full list of configurable options.
-    """
-
-    # TODO: Fill in the url base. Required.
-    url_base = "https://example-api.com/v1/"
-
-    def next_page_token(self, response: requests.Response) -> Optional[Mapping[str, Any]]:
-        """
-        TODO: Override this method to define a pagination strategy. If you will not be using pagination, no action is required - just return None.
-
-        This method should return a Mapping (e.g: dict) containing whatever information required to make paginated requests. This dict is passed
-        to most other methods in this class to help you form headers, request bodies, query params, etc..
-
-        For example, if the API accepts a 'page' parameter to determine which page of the result to return, and a response from the API contains a
-        'page' number, then this method should probably return a dict {'page': response.json()['page'] + 1} to increment the page count by 1.
-        The request_params method should then read the input next_page_token and set the 'page' param to next_page_token['page'].
-
-        :param response: the most recent response from the API
-        :return If there is another page in the result, a mapping (e.g: dict) containing information needed to query the next page in the response.
-                If there are no more pages in the result, return None.
-        """
-        return None
-
-    def request_params(
-        self, stream_state: Mapping[str, Any], stream_slice: Mapping[str, any] = None, next_page_token: Mapping[str, Any] = None
+    def get_updated_state(
+            self,
+            current_stream_state: MutableMapping[str, Any],
+            latest_record: Mapping[str, Any]
     ) -> MutableMapping[str, Any]:
-        """
-        TODO: Override this method to define any query parameters to be set. Remove this method if you don't need to define request params.
-        Usually contains common params e.g. pagination size etc.
-        """
-        return {}
+        latest_state = current_stream_state or {}
+        latest_cursor_value = latest_record.get(self.cursor_field, 0)
+        current_cursor_value = latest_state.get(self.cursor_field, 0)
 
-    def parse_response(self, response: requests.Response, **kwargs) -> Iterable[Mapping]:
-        """
-        TODO: Override this method to define how a response is parsed.
-        :return an iterable containing each record in the response
-        """
-        yield {}
+        new_state = {
+            "timestamp": max(latest_cursor_value, current_cursor_value),
+            "indexname": self.index_name
+        }
 
+        logger.debug(f"Updated state for {self.event_type}: {new_state}")
+        return new_state
 
-class Customers(PulseNetskopeStream):
-    """
-    TODO: Change class name to match the table/data source this stream corresponds to.
-    """
+    def stream_slices(
+            self,
+            sync_mode,
+            cursor_field: List[str] = None,
+            stream_state: Mapping[str, Any] = None
+    ) -> Iterable[Optional[Mapping[str, Any]]]:
+        start_time = self._start_timestamp
+        if stream_state:
+            start_time = stream_state.get("timestamp", self._start_timestamp)
 
-    # TODO: Fill in the primary key. Required. This is usually a unique field in the stream, like an ID or a timestamp.
-    primary_key = "customer_id"
+        end_time = int(time.time())
 
-    def path(
-        self, stream_state: Mapping[str, Any] = None, stream_slice: Mapping[str, Any] = None, next_page_token: Mapping[str, Any] = None
-    ) -> str:
-        """
-        TODO: Override this method to define the path this stream corresponds to. E.g. if the url is https://example-api.com/v1/customers then this
-        should return "customers". Required.
-        """
-        return "customers"
+        logger.info(
+            f"Creating stream slice for {self.event_type} from "
+            f"timestamp {start_time} ({datetime.fromtimestamp(start_time)}) "
+            f"to {end_time} ({datetime.fromtimestamp(end_time)})"
+        )
 
+        return [{"starttime": start_time, "endtime": end_time}]
 
-# Basic incremental stream
-class IncrementalPulseNetskopeStream(PulseNetskopeStream, ABC):
-    """
-    TODO fill in details of this class to implement functionality related to incremental syncs for your connector.
-         if you do not need to implement incremental sync for any streams, remove this class.
-    """
+    def read_records(
+            self,
+            sync_mode,
+            cursor_field: List[str] = None,
+            stream_slice: Mapping[str, Any] = None,
+            stream_state: Mapping[str, Any] = None,
+    ) -> Iterable[Mapping[str, Any]]:
+        logger.info(
+            f"Reading {self.event_type} records from {stream_slice['starttime']} "
+            f"to {stream_slice['endtime']}"
+        )
 
-    # TODO: Fill in to checkpoint stream reads after N records. This prevents re-reading of data if the stream fails for any reason.
-    state_checkpoint_interval = None
+        try:
+            params = {
+                Const.NSKP_TOKEN: self.api_token,
+                Const.NSKP_TENANT_HOSTNAME: self.tenant_url,
+                Const.NSKP_EVENT_TYPE: self.event_type,
+                Const.NSKP_ITERATOR_NAME: f"airbyte_{self.index_name}",
+                "starttime": stream_slice["starttime"],
+                "endtime": stream_slice["endtime"]
+            }
 
-    @property
-    def cursor_field(self) -> str:
-        """
-        TODO
-        Override to return the cursor field used by this stream e.g: an API entity might always use created_at as the cursor field. This is
-        usually id or date based. This field's presence tells the framework this in an incremental stream. Required for incremental.
+            iterator = NetskopeIterator(params)
+            record_count = 0
 
-        :return str: The name of the cursor field.
-        """
-        return []
+            while True:
+                response = iterator.next()
+                if not response:
+                    break
 
-    def get_updated_state(self, current_stream_state: MutableMapping[str, Any], latest_record: Mapping[str, Any]) -> Mapping[str, Any]:
-        """
-        Override to determine the latest state after reading the latest record. This typically compared the cursor_field from the latest record and
-        the current state and picks the 'most' recent cursor. This is how a stream's state is determined. Required for incremental.
-        """
-        return {}
+                data = response.json()
+                if "result" in data and len(data["result"]) > 0:
+                    for record in data["result"]:
+                        record_count += 1
+                        yield record
 
+                    # Honor the wait time from the API
+                    wait_time = data.get("wait_time", 0.2)
+                    logger.debug(f"Waiting {wait_time} seconds before next batch")
+                    time.sleep(wait_time)
+                else:
+                    logger.debug("No more data to fetch")
+                    break
 
-class Employees(IncrementalPulseNetskopeStream):
-    """
-    TODO: Change class name to match the table/data source this stream corresponds to.
-    """
+            logger.info(f"Retrieved {record_count} {self.event_type} records")
 
-    # TODO: Fill in the cursor_field. Required.
-    cursor_field = "start_date"
+        except Exception as e:
+            logger.error(f"Error fetching {self.event_type} events: {str(e)}")
+            raise
 
-    # TODO: Fill in the primary key. Required. This is usually a unique field in the stream, like an ID or a timestamp.
-    primary_key = "employee_id"
-
-    def path(self, **kwargs) -> str:
-        """
-        TODO: Override this method to define the path this stream corresponds to. E.g. if the url is https://example-api.com/v1/employees then this should
-        return "single". Required.
-        """
-        return "employees"
-
-    def stream_slices(self, stream_state: Mapping[str, Any] = None, **kwargs) -> Iterable[Optional[Mapping[str, any]]]:
-        """
-        TODO: Optionally override this method to define this stream's slices. If slicing is not needed, delete this method.
-
-        Slices control when state is saved. Specifically, state is saved after a slice has been fully read.
-        This is useful if the API offers reads by groups or filters, and can be paired with the state object to make reads efficient. See the "concepts"
-        section of the docs for more information.
-
-        The function is called before reading any records in a stream. It returns an Iterable of dicts, each containing the
-        necessary data to craft a request for a slice. The stream state is usually referenced to determine what slices need to be created.
-        This means that data in a slice is usually closely related to a stream's cursor_field and stream_state.
-
-        An HTTP request is made for each returned slice. The same slice can be accessed in the path, request_params and request_header functions to help
-        craft that specific request.
-
-        For example, if https://example-api.com/v1/employees offers a date query params that returns data for that particular day, one way to implement
-        this would be to consult the stream state object for the last synced date, then return a slice containing each date from the last synced date
-        till now. The request_params function would then grab the date from the stream_slice and make it part of the request by injecting it into
-        the date query param.
-        """
-        raise NotImplementedError("Implement stream slices or delete this method!")
-
-
-# Source
 class SourcePulseNetskope(AbstractSource):
     def check_connection(self, logger, config) -> Tuple[bool, any]:
-        """
-        TODO: Implement a connection check to validate that the user-provided config can be used to connect to the underlying API
+        try:
+            logger.info("Checking connection to Netskope API...")
+            params = {
+                Const.NSKP_TOKEN: config["token"],
+                Const.NSKP_TENANT_HOSTNAME: config["tenant_url"],
+                Const.NSKP_EVENT_TYPE: "application",
+                Const.NSKP_ITERATOR_NAME: "airbyte_connection_test",
+                "starttime": int(time.time()) - 300,  # Last 5 minutes
+                "endtime": int(time.time())
+            }
 
-        See https://github.com/airbytehq/airbyte/blob/master/airbyte-integrations/connectors/source-stripe/source_stripe/source.py#L232
-        for an example.
+            iterator = NetskopeIterator(params)
+            response = iterator.next()
 
-        :param config:  the user-input config object conforming to the connector's spec.yaml
-        :param logger:  logger object
-        :return Tuple[bool, any]: (True, None) if the input config can be used to connect to the API successfully, (False, error) otherwise.
-        """
-        return True, None
+            if response and response.status_code == 200:
+                logger.info("Successfully connected to Netskope API")
+                return True, None
+            else:
+                return False, "Failed to get response from Netskope API"
+
+        except Exception as e:
+            logger.error(f"Failed to connect to Netskope API: {str(e)}")
+            return False, str(e)
 
     def streams(self, config: Mapping[str, Any]) -> List[Stream]:
-        """
-        TODO: Replace the streams below with your own streams.
+        logger.info("Initializing Netskope streams...")
 
-        :param config: A Mapping of the user input configuration as defined in the connector spec.
-        """
-        # TODO remove the authenticator if not required.
-        auth = TokenAuthenticator(token="api_key")  # Oauth2Authenticator is also available if you need oauth support
-        return [Customers(authenticator=auth), Employees(authenticator=auth)]
+        start_timestamp = config.get("start_timestamp", int(time.time()) - 86400)
+        logger.info(f"Using start timestamp: {start_timestamp} ({datetime.fromtimestamp(start_timestamp)})")
+
+        streams = []
+        for event_type in ["application", "network", "connection"]:
+            stream = NetskopeDataExportStream(
+                event_type=event_type,
+                start_timestamp=start_timestamp,
+                tenant_url=config["tenant_url"],
+                api_token=config["token"]
+            )
+            streams.append(stream)
+            logger.info(f"Created stream for {event_type} events with index name {stream.index_name}")
+
+        return streams
