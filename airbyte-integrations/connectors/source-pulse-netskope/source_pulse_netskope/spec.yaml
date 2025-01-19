@@ -1,0 +1,30 @@
+documentationUrl: https://docs.netskope.com/en/rest-api-v2.html
+connectionSpecification:
+  $schema: http://json-schema.org/draft-07/schema#
+  title: Netskope Source Spec
+  type: object
+  required:
+    - token
+    - tenant_url
+  additionalProperties: false
+  properties:
+    token:
+      type: string
+      title: API Token
+      description: "Your Netskope REST API token. You can generate this from the Netskope UI under Settings > Tools > REST API v2."
+      airbyte_secret: true
+    tenant_url:
+      type: string
+      title: Tenant URL
+      description: "Your Netskope tenant URL (e.g., 'tenant.goskope.com')"
+      examples:
+        - "company.goskope.com"
+        - "tenant.eu.goskope.com"
+      pattern: "^[a-zA-Z0-9.-]+\\.goskope\\.com$"
+    start_timestamp:
+      type: integer
+      title: Start Timestamp
+      description: "The Unix timestamp (in seconds) from which to start syncing data. If not provided, defaults to 24 hours ago."
+      examples:
+        - 1640995200
+      minimum: 0
